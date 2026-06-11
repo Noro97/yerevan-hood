@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yerevan Hood — Kond Street Brawler</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #120d1d;
+      overflow: hidden;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #game canvas {
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: auto;
+      display: block;
+      box-shadow: 0 0 80px rgba(0, 0, 0, 0.8);
+    }
+    #loading {
+      position: absolute;
+      color: #c9a0ff;
+      letter-spacing: 2px;
+      font-size: 14px;
+    }
+  </style>
+  <script type="importmap">
+    { "imports": { "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.mjs" } }
+  </script>
+</head>
+<body>
+  <div id="loading">LOADING YEREVAN HOOD…</div>
+  <div id="game"></div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
