@@ -1,5 +1,6 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Text, ColorMatrixFilter } from "pixi.js";
 import { Scene } from "../core/Scene.js";
+import { ParticleSystem } from "../views/ParticleSystem.js";
 import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, ARM_FONT, WEAPONS, STORY, CHAPTERS, chapterOf } from "../core/Constants.js";
 import { sfx } from "../core/SoundManager.js";
 import { GameModel } from "../models/GameModel.js";
@@ -48,6 +49,7 @@ export class GameplayScene extends Scene {
 
     // 1. Create Environmental Layers
     this.bg = new BackgroundView();
+    this.bg.bake(app.pixiApp.renderer); // flatten static scenery to one texture
     this.addChild(this.bg.sky, this.bg.far, this.bg.mid);
 
     // 2. Create Dynamic World Layers
@@ -56,6 +58,11 @@ export class GameplayScene extends Scene {
     this.actors.sortableChildren = true;
     this.world.addChild(this.bg.scenery, this.actors);
     this.addChild(this.world);
+    this.addChild(this.bg.fore); // out-of-focus foreground strip
+
+    // Per-chapter color grade on the world
+    this.grade = new ColorMatrixFilter();
+    this.world.filters = [this.grade];
 
     // 3. Chapter mood overlay
     this.moodTint = new Graphics();
@@ -94,6 +101,8 @@ export class GameplayScene extends Scene {
         bullets: this.bullets,
         breakables: this.crates,
         buffs: this.game.buffs,
+        superMeter: this.game.super,
+        scene: this,
       }),
     });
 
@@ -127,6 +136,8 @@ export class GameplayScene extends Scene {
 
     // Rebuild environmental props (Ladas, Lamps, Bins)
     this.bg.buildProps(this.actors);
+    // Fresh particle pool (old one died with the actors layer)
+    this.particles = new ParticleSystem(this.actors);
   }
 
   startGame() {
@@ -207,14 +218,47 @@ export class GameplayScene extends Scene {
     // gentler late-game curve: fewer thugs, slower damage growth
     const count = bossName ? 3 : Math.min(2 + Math.ceil(n * 0.7), 8);
     for (let i = 0; i < count; i++) {
-      this.game.spawnQueue.push({
+      const cfg = {
         paletteKey: types[(i + n) % types.length],
         hp: 26 + n * 6,
         speed: 1.25 + Math.random() * 0.6 + n * 0.05,
         power: 0.5 + n * 0.045,
         scale: 0.98 + Math.random() * 0.1,
         aiCool: Math.max(45, 85 - n * 4),
-      });
+      };
+      // archetype mix-ins as the waves climb
+      if (n >= 2 && i % 4 === 1) {
+        cfg.archetype = "rusher";
+        cfg.paletteKey = "thug3";
+        cfg.speed = 2.2;
+        cfg.hp = Math.round(cfg.hp * 0.8);
+        cfg.lungeMul = 3.2;
+        cfg.aiCool = 60;
+      } else if (n >= 3 && i % 5 === 2) {
+        cfg.archetype = "grappler";
+        cfg.paletteKey = "thug1";
+        cfg.scale = 1.16;
+        cfg.speed = 1.1;
+        cfg.hp = Math.round(cfg.hp * 1.5);
+        cfg.power = cfg.power * 1.2;
+        cfg.aiCool = 95;
+      }
+      this.game.spawnQueue.push(cfg);
+    }
+    // shielders: trash-lid tanks that must be flanked or floored
+    if (n >= 5) {
+      const num = n >= 8 ? 2 : 1;
+      for (let i = 0; i < num; i++) {
+        this.game.spawnQueue.push({
+          paletteKey: "shielder",
+          archetype: "shielder",
+          hp: 30 + n * 7,
+          speed: 1.2,
+          power: 0.5 + n * 0.04,
+          scale: 1.06,
+          aiCool: 80,
+        });
+      }
     }
 
     if (n >= 4) {
@@ -275,8 +319,13 @@ export class GameplayScene extends Scene {
     model.boss = !!cfg.boss;
     model.bossName = cfg.name || null;
     model.gunner = !!cfg.gunner;
+    model.archetype = cfg.archetype || null;
+    model.lungeMul = cfg.lungeMul || 1;
     model.aiCool = cfg.aiCool;
     model.shootCd = 60 + Math.random() * 60;
+    if (model.archetype === "shielder") {
+      model.setWeapon({ kind: "lid", def: { melee: false, label: "ԿԱՓԱԿ" } });
+    }
 
     const view = new FighterView(cfg.paletteKey, false, cfg.scale, cfg.name);
 
@@ -380,6 +429,7 @@ export class GameplayScene extends Scene {
             this.game.combo++;
             this.game.comboTimer = 110;
             this.game.score += 20;
+            this.game.super = Math.min(100, this.game.super + 6);
             if (killed) this.onKill(t);
             stopped = true;
             break;
@@ -400,6 +450,7 @@ export class GameplayScene extends Scene {
         if (WEAPONS[th.type].shatter) {
           // bottles never survive a flight
           this.spawnSpark(th.x, th.gy - 18, true, 0x9fe8d8);
+          this.particles.glass(th.x, th.gy - 18);
         } else {
           this.spawnPickup(th.x, th.gy, th.type, th.meta);
         }
@@ -459,6 +510,7 @@ export class GameplayScene extends Scene {
               this.game.combo++;
               this.game.comboTimer = 110;
               this.game.score += 20;
+              this.game.super = Math.min(100, this.game.super + 6);
               if (killed) this.onKill(t);
             } else if (killed) {
               this.game.shake = 12;
@@ -563,9 +615,37 @@ export class GameplayScene extends Scene {
     return "pistol";
   }
 
+  // ԿԱՅԾԱԿ: whirlwind super — costs a full meter, clears the space around Davo
+  trySuper() {
+    const p = this.playerModel;
+    if (this.game.super < 100 || !p || !p.alive || p.z > 0) return;
+    if (p.state !== "idle" && p.state !== "walk") return;
+    this.game.super = 0;
+    p.superSpin = 20;
+    p.invul = Math.max(p.invul, 26);
+    this.game.shake = 16;
+    this.hitstop = 5;
+    this.spawnPopup(p.x, p.y - 120 * p.scaleF, "ԿԱՅԾԱԿ!", 0xffe14a, 22);
+    this.particles.burst(p.x, p.y - 40, true);
+    sfx.ko();
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const dx = e.x - p.x;
+      if (Math.abs(dx) > 270 || Math.abs(e.y - p.y) > 70) continue;
+      e.invul = 0; // the storm respects no block
+      if (!e.vulnerable) continue; // ...but grounded knockdowns stay safe
+      const killed = e.applyHit(Math.round(38 * p.power), Math.sign(dx) || 1, 11, true);
+      this.spawnPopup(e.x, e.y - 95 * e.scaleF, "-38", 0xffe14a);
+      this.particles.burst(e.x, e.y - 40);
+      if (killed) this.onKill(e);
+    }
+  }
+
   onKill(t) {
     this.game.score += 100 + this.game.wave * 20 + (t.boss ? 300 : 0);
     this.game.shake = t.boss ? 14 : 7;
+    this.particles.burst(t.x, t.y - 40, t.boss);
+    if (t.boss) this.game.zoomPunch = 14; // cinematic zoom kick
     if (t.gunner) {
       // their pistol survives with whatever they hadn't fired yet
       this.spawnPickup(t.x, t.y, "pistol", { ammo: 3 + Math.floor(Math.random() * 4) });
@@ -580,6 +660,7 @@ export class GameplayScene extends Scene {
   hitCrate(c, dmg) {
     const broken = c.hit(dmg);
     this.spawnSpark(c.x, c.y - 16, false, 0xd9b380);
+    this.particles.debris(c.x, c.y);
     sfx.hit();
     if (broken) {
       const view = this.crateViews.get(c);
@@ -613,24 +694,46 @@ export class GameplayScene extends Scene {
         let kd = hit.knockdown;
         if (!kd && atk.isPlayer) {
           if (hit.kind === "kick" && Math.random() < 0.35) kd = true;
+          if (hit.kind === "hook" && Math.random() < 0.6) kd = true;
           if (hit.weapon && hit.weapon.kind === "stick" && Math.random() < 0.5) kd = true;
         } else if (!kd && !atk.isPlayer) {
-          if (atk.boss && Math.random() < 0.5) kd = true;
+          if (atk.archetype === "grappler") kd = true; // the bear hug always slams
+          else if (atk.boss && Math.random() < 0.5) kd = true;
           else if (hit.kind === "kick" && Math.random() < 0.18) kd = true;
         }
         if (kd && t.boss && Math.random() < 0.6) kd = false;
 
+        // shielders eat frontal hits on the trash lid
+        let dmg = hit.dmg;
+        let blocked = false;
+        if (t.archetype === "shielder" && t.state !== "down" && t.facing === -atk.facing) {
+          dmg = Math.max(1, Math.round(dmg * 0.25));
+          kd = false;
+          blocked = true;
+        }
+
         atk.hitDone = true;
         landed = true;
 
-        const killed = t.applyHit(hit.dmg, atk.facing, hit.kb, kd);
-        this.spawnSpark((atk.x + t.x) / 2, t.y - 55, hit.kind === "kick");
-        this.spawnPopup(
-          t.x, t.y - 95 * t.scaleF, `-${hit.dmg}`,
-          atk.isPlayer ? (hit.kind === "kick" ? 0xffb347 : 0xffe7b0) : 0xff6a5e
-        );
+        const killed = t.applyHit(dmg, atk.facing, blocked ? 2 : hit.kb, kd);
+        if (blocked) {
+          this.spawnSpark((atk.x + t.x) / 2, t.y - 55, false, 0xb9c2cc);
+          this.spawnPopup(t.x, t.y - 95 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
+        } else {
+          this.spawnSpark((atk.x + t.x) / 2, t.y - 55, hit.kind !== "punch");
+          this.spawnPopup(
+            t.x, t.y - 95 * t.scaleF, `-${dmg}`,
+            atk.isPlayer ? (hit.kind === "punch" ? 0xffe7b0 : 0xffb347) : 0xff6a5e
+          );
+        }
+        this.particles.puff((atk.x + t.x) / 2, t.y - 50);
         sfx.hit();
-        this.hitstop = hit.kind === "kick" ? 4 : 2.5;
+        this.hitstop = hit.kind === "punch" ? 2.5 : 4;
+
+        // landing hits charges the ԿԱՅԾԱԿ meter
+        if (atk.isPlayer) {
+          this.game.super = Math.min(100, this.game.super + (hit.kind === "punch" ? 5 : 7));
+        }
 
         // getting floored knocks the weapon out of your hands
         if (t.isPlayer && t.state === "down" && t.weapon) {
@@ -684,8 +787,17 @@ export class GameplayScene extends Scene {
       oy = (Math.random() - 0.5) * this.game.shake * 0.6;
     }
 
-    this.world.x = -this.game.camX + ox;
-    this.world.y = oy;
+    // zoom kick on boss KOs, decaying back to 1×
+    let zoom = 1;
+    if (this.game.zoomPunch > 0) {
+      this.game.zoomPunch -= dt;
+      zoom = 1 + Math.max(0, this.game.zoomPunch) * 0.006;
+    }
+    // pivot-based transform: equivalent to world.x = -camX at zoom 1,
+    // but scales around the center of the action when zoom kicks in
+    this.world.pivot.set(this.game.camX + W / 2, 420);
+    this.world.position.set(W / 2 + ox, 420 + oy);
+    this.world.scale.set(zoom);
 
     // Scroll backgrounds
     this.bg.updateCamera(this.game.camX);
@@ -724,14 +836,22 @@ export class GameplayScene extends Scene {
   }
 
   setChapterMood(ch) {
+    this.grade.reset();
     if (ch === 2) {
       this.moodTint.tint = 0x101a4a;
       this.moodTint.alpha = 0.22;
+      // night: desaturated, slightly darker
+      this.grade.saturate(-0.22, true);
+      this.grade.brightness(0.94, true);
     } else if (ch === 3) {
       this.moodTint.tint = 0xff8c42;
       this.moodTint.alpha = 0.1;
+      // dawn: punchy and golden
+      this.grade.saturate(0.15, true);
+      this.grade.brightness(1.05, true);
     } else {
       this.moodTint.alpha = 0;
+      this.grade.saturate(0.05, true);
     }
   }
 
@@ -835,6 +955,13 @@ export class GameplayScene extends Scene {
             else this.playerModel.tryAttack("kick");
           } else if (this.app.input.isPressed("KeyE")) {
             this.throwWeapon();
+          } else if (this.app.input.isPressed("KeyL", "ShiftLeft", "ShiftRight")) {
+            if (this.playerModel.tryRoll()) {
+              this.particles.dust(this.playerModel.x, this.playerModel.y, 4);
+              sfx.swing();
+            }
+          } else if (this.app.input.isPressed("KeyU")) {
+            this.trySuper();
           }
         }
 
@@ -851,7 +978,8 @@ export class GameplayScene extends Scene {
         if (this.game.mode === "playing" && this.game.spawnQueue.length > 0) {
           this.game.spawnTimer -= dt;
           const aliveCount = this.enemies.filter((e) => e.alive).length;
-          if (this.game.spawnTimer <= 0 && aliveCount < 4) {
+          const aliveCap = this.game.wave >= 7 ? 5 : 4;
+          if (this.game.spawnTimer <= 0 && aliveCount < aliveCap) {
             this.spawnEnemy(this.game.spawnQueue.shift());
             this.game.spawnTimer = 30;
           }
@@ -878,12 +1006,40 @@ export class GameplayScene extends Scene {
           e.y = Math.max(FLOOR_TOP, Math.min(FLOOR_BOTTOM, e.y));
         }
 
+        // Atmosphere & feedback driven by fighter physics
+        const LAMPS = [180, 980, 1780, 2580];
+        const allFighters = this.playerModel ? [this.playerModel, ...this.enemies] : this.enemies;
+        for (const f of allFighters) {
+          // warm pool of light when standing near a street lamp
+          let nearest = 1e9;
+          for (const lx of LAMPS) nearest = Math.min(nearest, Math.abs(f.x - lx));
+          f.lampGlow = Math.max(0, 1 - nearest / 150);
+          // landing dust (jumps, knockdowns, deaths from height)
+          if (f.justLanded > 8) this.particles.dust(f.x, f.y, 6);
+        }
+        // running kicks up dust
+        if (this.playerModel && this.playerModel.state === "walk" && this.playerModel.z === 0 && Math.floor(this.frame) % 11 === 0) {
+          this.particles.dust(this.playerModel.x - this.playerModel.facing * 10, this.playerModel.y, 1);
+        }
+        // boss enrage at half health
+        for (const e of this.enemies) {
+          if (e.boss && e.alive && !e.enraged && e.hp < e.maxHp * 0.5) {
+            e.enraged = true;
+            e.speed += 0.45;
+            e.power *= 1.3;
+            this.game.shake = 10;
+            this.spawnPopup(e.x, e.y - 120 * e.scaleF, "ԿԱՏԱՂԵՑ! ENRAGED!", 0xff6a5e, 18);
+            sfx.hurt();
+          }
+        }
+
         if (this.game.mode === "playing") {
           this.resolveHits();
         }
 
         this.updateBullets(dt);
         this.updateThrows(dt);
+        this.particles.update(dt);
 
         if (this.game.comboTimer > 0) this.game.comboTimer -= dt;
         else this.game.combo = 0;

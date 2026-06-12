@@ -155,6 +155,12 @@ export class FighterView extends Container {
     } else if (weapon.kind === "pistol") {
       g.roundRect(-2.5, 24, 5, 10, 2).fill(0x3a3a42).stroke(OUTLINE);
       g.roundRect(-2.5, 32, 16, 5, 2).fill(0x2a2a30).stroke(OUTLINE);
+    } else if (weapon.kind === "lid") {
+      // trash-can lid shield (shielder archetype)
+      g.circle(0, 32, 13).fill(0x6e7682).stroke(OUTLINE);
+      g.circle(0, 32, 8).stroke({ width: 1.5, color: 0x575e68 });
+      g.circle(0, 32, 3).fill(0x575e68);
+      g.ellipse(-4, 27, 4, 2.5).fill({ color: 0xffffff, alpha: 0.25 });
     }
   }
 
@@ -185,13 +191,28 @@ export class FighterView extends Container {
     this.shadow.scale.set(sh);
     this.shadow.alpha = 0.35 * sh + 0.1;
 
-    // Flashing when hurt
-    const baseTint = model.isPlayer 
-      ? (model.power > 1 ? 0xffc36b : (model.speed > 2.7 ? 0xc8e8ff : 0xffffff)) 
+    // Tint pipeline: impact flash (white snap → red) > enrage pulse > buffs > lamp glow
+    let baseTint = model.isPlayer
+      ? (model.power > 1 ? 0xffc36b : (model.speed > 2.7 ? 0xc8e8ff : 0xffffff))
       : 0xffffff;
-    const tint = model.flash > 0 ? 0xff5b5b : baseTint;
+    if (model.enraged) {
+      baseTint = Math.sin(model.t * 0.2) > 0 ? 0xff9a8a : 0xffd0c0;
+    } else if (model.lampGlow > 0) {
+      // warm pool of light under the street lamps
+      const k = Math.min(1, model.lampGlow) * 0.45;
+      const r = 0xff, gr = Math.round(0xff - 0x26 * k), b = Math.round(0xff - 0x60 * k);
+      baseTint = (r << 16) | (gr << 8) | b;
+    }
+    const tint = model.flash > 6 ? 0xffffff : model.flash > 0 ? 0xff5b5b : baseTint;
     for (const g of this.tintables) {
       g.tint = tint;
+    }
+
+    // Landing squash-and-stretch
+    if (model.justLanded > 0) {
+      const sq = model.justLanded / 9;
+      this.body.scale.y = this.scaleF * (1 - 0.16 * sq);
+      this.body.scale.x = model.facing * this.scaleF * (1 + 0.12 * sq);
     }
 
     // Mercy-frame blink
@@ -271,12 +292,13 @@ export class FighterView extends Container {
         else ext = 1 - (p - 0.6) / 0.4;
         ext = Math.max(0, Math.min(1, ext));
 
-        if (model.attackKind === "punch") {
-          FA.rotation = restArm + (-1.75 - restArm) * ext;
-          BA.rotation = restArm + 0.5 * ext;
+        if (model.attackKind === "punch" || model.attackKind === "hook") {
+          const power = model.attackKind === "hook" ? 1.25 : 1;
+          FA.rotation = restArm + (-1.75 * power - restArm) * ext;
+          BA.rotation = restArm + 0.5 * power * ext;
           FL.rotation = 0.25 * ext;
           BL.rotation = -0.2 * ext;
-          this.body.rotation = -0.06 * ext;
+          this.body.rotation = -0.06 * power * 2 * ext;
           this.body.y = -model.z;
         } else {
           // Kick
@@ -295,6 +317,17 @@ export class FighterView extends Container {
         BA.rotation = restArm - 0.4;
         FL.rotation = 0.1;
         BL.rotation = -0.1;
+        break;
+      }
+      case "roll": {
+        // forward somersault: full spin over the roll duration, limbs tucked
+        const p = 1 - Math.max(0, model.rollTimer) / 14;
+        this.body.rotation = p * Math.PI * 2;
+        this.body.y = -6 - Math.sin(p * Math.PI) * 8;
+        FA.rotation = 1.2;
+        BA.rotation = -1.2;
+        FL.rotation = 1.4;
+        BL.rotation = -1.0;
         break;
       }
       case "down": {
@@ -331,6 +364,14 @@ export class FighterView extends Container {
         }
         break;
       }
+    }
+
+    // ԿԱՅԾԱԿ super: whirlwind spin overrides the pose
+    if (model.superSpin > 0) {
+      this.body.rotation = (1 - model.superSpin / 20) * Math.PI * 4;
+      this.body.y = -model.z - 4;
+      FA.rotation = -1.4;
+      BA.rotation = 1.4;
     }
   }
 }

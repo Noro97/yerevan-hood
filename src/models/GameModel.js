@@ -15,6 +15,8 @@ export class GameModel {
     this.spawnTimer = 0;
     this.camX = 0;
     this.shake = 0;
+    this.zoomPunch = 0; // camera zoom kick on boss KOs
+    this.super = 0;     // ԿԱՅԾԱԿ meter, 0..100
     this.bannerTimer = 0;
     this.deathTimer = 0;
     this.endless = false;
@@ -32,6 +34,8 @@ export class GameModel {
     this.spawnTimer = 0;
     this.camX = 0;
     this.shake = 0;
+    this.zoomPunch = 0;
+    this.super = 0;
     this.bannerTimer = 0;
     this.deathTimer = 0;
     this.endless = false;

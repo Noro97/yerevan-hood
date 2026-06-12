@@ -31,14 +31,25 @@ Then open the printed localhost URL.
 | Key | Action |
 | --- | --- |
 | ← → ↑ ↓ or WASD | Move (8-directional, with momentum) |
-| J or Z | Punch / swing weapon / **fire pistol** |
+| J or Z | Punch / swing weapon / **fire pistol** — chain **J·J·J** for a hook finisher |
 | K or X | Kick (slower, stronger, chance to floor enemies) |
 | Space | **Jump** — jump over bullets! |
 | J or K in the air | **Flying kick** — always knocks down |
+| E | **Throw** the held weapon (bottles shatter and floor the target) |
+| L or Shift | **Dodge roll** — brief invulnerability |
+| U | **ԿԱՅԾԱԿ super** — whirlwind that floors everyone nearby (needs a full meter) |
 | J / Space / Enter | Advance dialogue |
 | R / Enter | Restart · Enter at victory = endless mode |
 
-Items are picked up by walking over them.
+Items are picked up by walking over them. Landing hits charges the gold super meter.
+
+### Enemy archetypes
+
+- **Rushers** (purple) sprint in with long lunging punches — roll through them.
+- **Grapplers** (big, green) are slow but their grab always slams you down — and knocks your weapon loose.
+- **Shielders** (blue, trash-can lid) block frontal hits down to scraps — flank them, floor them, or juggle them.
+- **Gunners** (red) keep range and shoot; jump the bullets.
+- **Bosses** enrage at half health: faster, harder, angrier.
 
 ### Health & damage
 

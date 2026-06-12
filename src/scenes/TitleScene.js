@@ -16,7 +16,8 @@ export class TitleScene extends Scene {
 
     // Create the background view and add static layers to this scene container
     this.bg = new BackgroundView();
-    this.addChild(this.bg.sky, this.bg.far, this.bg.mid, this.bg.scenery);
+    this.bg.bake(app.pixiApp.renderer);
+    this.addChild(this.bg.sky, this.bg.far, this.bg.mid, this.bg.scenery, this.bg.fore);
 
     // Create and add the overlays
     this.overlay = new OverlayView();

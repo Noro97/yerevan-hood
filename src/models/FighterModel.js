@@ -16,7 +16,7 @@ export class FighterModel {
     this.power = power;
     this.facing = isPlayer ? 1 : -1;
 
-    this.state = "idle"; // idle | walk | attack | hurt | down | rise | dead
+    this.state = "idle"; // idle | walk | attack | hurt | roll | down | rise | dead
     this.t = Math.floor(x % 60); // Desync animation loops
     this.attackKind = null;
     this.attackTimer = 0;
@@ -30,6 +30,24 @@ export class FighterModel {
     this.flash = 0;
     this.invul = 0; // Mercy invulnerability frames (player only)
     this.kbX = 0;
+
+    // Combo chain (player): J,J,J — third hit becomes a hook
+    this.chain = 0;
+    this.chainWindow = 0;
+    // Dodge roll
+    this.rollTimer = 0;
+    this.rollCd = 0;
+    this.rollDirX = 1;
+    this.rollDirY = 0;
+    // Landing feedback (view squash + dust)
+    this.peakZ = 0;
+    this.justLanded = 0;
+    // Super spin animation timer
+    this.superSpin = 0;
+    // Archetype tuning
+    this.archetype = null; // null | rusher | grappler | shielder
+    this.lungeMul = 1;
+    this.enraged = false;
     this.moveX = 0;
     this.moveY = 0;
     this.removed = false;
@@ -55,7 +73,10 @@ export class FighterModel {
   }
 
   get vulnerable() {
-    return this.alive && this.state !== "down" && this.state !== "rise" && this.invul <= 0;
+    if (!this.alive || this.invul > 0 || this.state === "rise" || this.state === "roll") return false;
+    // a downed fighter is safe on the ground, but airborne they can be JUGGLED
+    if (this.state === "down") return this.z > 8;
+    return true;
   }
 
   setMove(dx, dy) {
@@ -75,10 +96,31 @@ export class FighterModel {
     if (this.z > 0) return false;
     if (this.state !== "idle" && this.state !== "walk") return false;
     if (this.cooldown > 0) return false;
+    // player punch strings chain into a hook on the 3rd press
+    if (this.isPlayer && kind === "punch") {
+      this.chain = this.chainWindow > 0 ? this.chain + 1 : 0;
+      if (this.chain >= 2) {
+        kind = "hook";
+        this.chain = -1; // next punch restarts the string
+      }
+    }
     this.state = "attack";
     this.attackKind = kind;
     this.attackTimer = 0;
     this.hitDone = false;
+    return true;
+  }
+
+  tryRoll() {
+    if (this.z > 0 || this.rollCd > 0) return false;
+    if (this.state !== "idle" && this.state !== "walk") return false;
+    this.state = "roll";
+    this.rollTimer = 14;
+    this.rollCd = 42;
+    this.rollDirX = this.moveX !== 0 ? Math.sign(this.moveX) : this.facing;
+    this.rollDirY = this.moveY !== 0 ? Math.sign(this.moveY) : 0;
+    this.facing = this.rollDirX;
+    this.invul = 16;
     return true;
   }
 
@@ -123,6 +165,20 @@ export class FighterModel {
 
   applyHit(dmg, dir, kb, knockdown = false) {
     if (!this.vulnerable) return false;
+    // airborne juggle: keep them floating, no state change
+    if (this.state === "down" && this.z > 8) {
+      this.hp -= dmg;
+      this.flash = 8;
+      this.vz = Math.max(this.vz, 4.2);
+      this.kbX = dir * kb * 0.6;
+      this.downTimer = 0;
+      if (this.hp <= 0) {
+        this.state = "dead";
+        this.deadTimer = 0;
+        return true;
+      }
+      return false;
+    }
     this.hp -= dmg;
     this.flash = 8;
     this.kbX = dir * kb;
@@ -193,9 +249,17 @@ export class FighterModel {
         this.facing = Math.sign(pdx) || this.facing;
         this.tryAttack("punch");
       }
-    } else if (Math.abs(pdx) < 62 * this.scaleF && Math.abs(playerModel.y - this.y) < 22 && this.cooldown <= 0) {
-      this.facing = Math.sign(pdx) || this.facing;
-      this.tryAttack(Math.random() < 0.65 ? "punch" : "kick");
+    } else {
+      // rushers start their lunging punch from much further out
+      const reach = this.archetype === "rusher" ? 128 : 62 * this.scaleF;
+      if (Math.abs(pdx) < reach && Math.abs(playerModel.y - this.y) < 22 && this.cooldown <= 0) {
+        this.facing = Math.sign(pdx) || this.facing;
+        const kind =
+          this.archetype === "grappler" ? "kick"
+          : this.archetype === "rusher" ? "punch"
+          : Math.random() < 0.65 ? "punch" : "kick";
+        this.tryAttack(kind);
+      }
     }
   }
 
@@ -204,6 +268,10 @@ export class FighterModel {
     if (this.cooldown > 0) this.cooldown -= dt;
     if (this.flash > 0) this.flash -= dt;
     if (this.invul > 0) this.invul -= dt;
+    if (this.chainWindow > 0) this.chainWindow -= dt;
+    if (this.rollCd > 0) this.rollCd -= dt;
+    if (this.justLanded > 0) this.justLanded -= dt;
+    if (this.superSpin > 0) this.superSpin -= dt;
 
     // Knockback movement
     this.x += this.kbX * dt;
@@ -213,9 +281,12 @@ export class FighterModel {
     if (this.z > 0 || this.vz !== 0) {
       this.z += this.vz * dt;
       this.vz -= GRAVITY * dt;
+      this.peakZ = Math.max(this.peakZ, this.z);
       if (this.z <= 0) {
         this.z = 0;
         this.vz = 0;
+        if (this.peakZ > 14) this.justLanded = 9; // squash + dust trigger
+        this.peakZ = 0;
         if (this.airKick) {
           this.airKick = false;
           this.cooldown = Math.max(this.cooldown, 8);
@@ -245,12 +316,23 @@ export class FighterModel {
         this.attackTimer += dt;
         const a = ATTACKS[this.attackKind];
         if (this.attackTimer >= a.from && this.attackTimer <= a.to) {
-          this.x += this.facing * a.lunge * dt;
+          this.x += this.facing * a.lunge * this.lungeMul * dt;
         }
         if (this.attackTimer >= a.dur) {
           this.state = "idle";
           this.cooldown = this.isPlayer ? 5 : (this.aiCool || 55) + Math.random() * 45;
+          // open the chain window so the next J continues the string
+          if (this.isPlayer && (this.attackKind === "punch" || this.attackKind === "hook")) {
+            this.chainWindow = 24;
+          }
         }
+        break;
+      }
+      case "roll": {
+        this.rollTimer -= dt;
+        this.x += this.rollDirX * 5.4 * dt;
+        this.y += this.rollDirY * 2.2 * dt;
+        if (this.rollTimer <= 0) this.state = "idle";
         break;
       }
       case "hurt": {

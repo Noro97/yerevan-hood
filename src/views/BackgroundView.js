@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Text, RenderTexture, Sprite } from "pixi.js";
 import { W, H, WORLD_W, ARM_FONT, TUFF } from "../core/Constants.js";
 
 // Deterministic pseudo-random for stable texture scatter
@@ -25,9 +25,47 @@ export class BackgroundView {
     this.far = this.buildFar();
     this.mid = this.buildMid();
     this.scenery = new Container();
+    this.fore = this.buildFore();
 
     this.buildStreet();
     this.buildBuildings();
+  }
+
+  /**
+   * Flatten the static scenery (hundreds of Graphics + Texts) into a single
+   * baked sprite. One texture swap instead of re-tessellating every frame —
+   * frees the frame budget for particles and filters.
+   */
+  bake(renderer) {
+    if (this.baked) return;
+    const rt = RenderTexture.create({ width: WORLD_W, height: H });
+    renderer.render({ container: this.scenery, target: rt });
+    this.scenery.removeChildren().forEach((c) => c.destroy({ children: true }));
+    this.scenery.addChild(new Sprite(rt));
+    this.baked = true;
+  }
+
+  // Out-of-focus street furniture sliding past faster than the action (depth cue)
+  buildFore() {
+    const c = new Container();
+    const g = new Graphics();
+    const span = W + (WORLD_W - W) * 1.25 + 200;
+    for (let x = 160; x < span; x += 470) {
+      // bollard
+      g.roundRect(x, H - 34, 13, 34, 5).fill(0x120c18);
+      g.roundRect(x, H - 34, 13, 7, 5).fill(0x1d1426);
+    }
+    for (let x = 420; x < span; x += 940) {
+      // planter silhouette with shrub
+      g.poly([x, H, x + 44, H, x + 38, H - 22, x + 6, H - 22]).fill(0x120c18);
+      g.ellipse(x + 22, H - 30, 20, 12).fill(0x10160e);
+    }
+    // fire hydrant
+    g.roundRect(1180, H - 30, 16, 30, 6).fill(0x120c18);
+    g.circle(1188, H - 32, 7).fill(0x1d1426);
+    c.alpha = 0.92;
+    c.addChild(g);
+    return c;
   }
 
   buildSky() {
@@ -267,6 +305,15 @@ export class BackgroundView {
       }
     }
 
+    // Wet-asphalt reflections under the street lamps
+    for (const lx of [180, 980, 1780, 2580]) {
+      g.poly([lx + 12, 396, lx + 26, 396, lx + 22, 468, lx + 8, 468]).fill({ color: 0xffd98a, alpha: 0.07 });
+      g.poly([lx + 14, 396, lx + 24, 396, lx + 21, 440, lx + 13, 440]).fill({ color: 0xffd98a, alpha: 0.06 });
+      for (let s = 0; s < 4; s++) {
+        g.rect(lx + 10 + s * 4, 400 + s * 14, 2.5, 8 - s).fill({ color: 0xffe7b0, alpha: 0.08 });
+      }
+    }
+
     this.scenery.addChild(g);
 
     // Sidewalk plane trees (behind the actors)
@@ -295,7 +342,7 @@ export class BackgroundView {
       [10, 250, 4, 0, null, "ԿՈՆԴ"],
       [290, 220, 3, 1, "ՇԱՈՒՐՄԱ", null],
       [600, 300, 5, 2, "ԽԱՆՈՒԹ 24/7", null],
-      [930, 200, 3, 3, null, "ARARAT 33"],
+      [930, 200, 3, 3, null, "ARARAT 73"],
       [1160, 260, 4, 4, "ՎԱՐՍԱՎԻՐԱՆՈՑ", null],
       [1450, 230, 3, 0, null, null],
       [1710, 280, 5, 1, "ՎՈՒԼԿԱՆԻԶԱՑԻԱ", null],
@@ -755,8 +802,10 @@ export class BackgroundView {
   }
 
   updateCamera(camX) {
-    this.scenery.x = -camX;
+    // NOTE: scenery lives inside the world container, which the scene already
+    // scrolls by -camX — moving it here too made buildings slide at 2× speed.
     this.mid.x = -camX * 0.45;
     this.far.x = -camX * 0.18;
+    this.fore.x = -camX * 1.25;
   }
 }

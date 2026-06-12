@@ -15,6 +15,8 @@ export const JUMP_VEL = 8;
 export const ATTACKS = {
   punch: { dur: 18, from: 5, to: 11, range: 62, dmg: 9, kb: 4, lunge: 2.2 },
   kick: { dur: 26, from: 9, to: 16, range: 80, dmg: 14, kb: 8, lunge: 1.4 },
+  // 3rd hit of the J-J-J chain: slower, harder, sends them flying
+  hook: { dur: 22, from: 6, to: 13, range: 68, dmg: 15, kb: 9, lunge: 3 },
 };
 
 export const AIR_KICK = { range: 68, dmg: 17, kb: 9 };
@@ -25,6 +27,7 @@ export const PALETTES = {
   thug2: { jacket: 0x555c66, stripe: 0x40454d, pants: 0x2c3e57, skin: 0xe0ab76, cap: 0x444a52, shoe: 0x333333, beard: null },
   thug3: { jacket: 0x6e3b4e, stripe: 0x542c3b, pants: 0x2b2b30, skin: 0xcf9a68, cap: 0x542c3b, shoe: 0x1d1d1d, beard: 0x241810 },
   gunner: { jacket: 0x8a3a3a, stripe: 0x5e2727, pants: 0x2b2b30, skin: 0xd2a070, cap: 0x5e2727, shoe: 0x222222, beard: null },
+  shielder: { jacket: 0x4a5a6e, stripe: 0x36424f, pants: 0x2b2b30, skin: 0xd2a070, cap: 0x36424f, shoe: 0x222222, beard: null },
   boss: { jacket: 0x14161a, stripe: 0xd4af37, pants: 0x14161a, skin: 0xc89465, cap: 0x0e0f12, shoe: 0xffffff, beard: 0x1c130c, chain: true },
 };
 

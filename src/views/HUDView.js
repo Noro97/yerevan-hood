@@ -35,9 +35,17 @@ export class HUDView extends Container {
     this.hudWeapon = makeText("", 13, 0xe8cf9e);
     this.hudWeapon.position.set(18, 58);
 
+    // ԿԱՅԾԱԿ super meter
+    this.superBg = new Graphics();
+    this.superBg.roundRect(18, 80, 124, 9, 4).fill({ color: 0x000000, alpha: 0.6 });
+    this.superBg.roundRect(18, 80, 124, 9, 4).stroke({ width: 1.5, color: 0xffe14a });
+    this.superFg = new Graphics();
+    this.superLabel = makeText("ԿԱՅԾԱԿ · U", 10, 0xffe14a);
+    this.superLabel.position.set(148, 78);
+
     // Active buffs text
     this.hudBuffs = makeText("", 13, 0x9fd8ff);
-    this.hudBuffs.position.set(18, 78);
+    this.hudBuffs.position.set(18, 94);
 
     // Score indicator
     this.hudScore = makeText("0", 22, 0xffffff);
@@ -56,7 +64,7 @@ export class HUDView extends Container {
     this.hudCombo.visible = false;
 
     // Bottom controller guide
-    this.hudHint = makeText("←→↑↓/WASD շարժվել · J հարված/կրակիր · K ոտքով · SPACE թռիչք · E՝ նետիր զենքը", 12, 0xbbaecc, "400");
+    this.hudHint = makeText("←→↑↓/WASD · J հարված (J·J·J կոմբո) · K ոտք · SPACE թռիչք · E նետիր · L/Shift գլորվիր · U ԿԱՅԾԱԿ", 11, 0xbbaecc, "400");
     this.hudHint.anchor.set(0.5, 1);
     this.hudHint.position.set(W / 2, H - 8);
 
@@ -91,6 +99,9 @@ export class HUDView extends Container {
       this.hudBarBg,
       this.hudBarFg,
       this.hudWeapon,
+      this.superBg,
+      this.superFg,
+      this.superLabel,
       this.hudBuffs,
       this.hudScore,
       this.hudWave,
@@ -145,6 +156,16 @@ export class HUDView extends Container {
     // 3. Sync Weapon readout
     const w = playerModel?.weapon;
     this.hudWeapon.text = w ? `${w.def.label} ×${w.def.melee ? w.uses : w.ammo} · E՝ նետիր` : "";
+
+    // 3.5 Super meter: fills gold, flashes when ready
+    this.superFg.clear();
+    const sup = Math.max(0, Math.min(100, gameModel.super || 0));
+    if (sup > 0) {
+      const full = sup >= 100;
+      const flash = full && Math.sin(this.tick * 0.3) > 0;
+      this.superFg.roundRect(20, 82, 120 * (sup / 100), 5, 2).fill(flash ? 0xfff7c0 : 0xffe14a);
+    }
+    this.superLabel.alpha = sup >= 100 ? 0.7 + Math.sin(this.tick * 0.3) * 0.3 : 0.45;
 
     // 4. Sync Buff durations
     const parts = [];
