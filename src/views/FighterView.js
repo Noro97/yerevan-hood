@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite, Text } from "pixi.js";
-import { ARM_FONT, PALETTES, CHAR_SCALE, ATTACKS } from "../core/Constants.js";
+import { ARM_FONT, PALETTES, CHAR_SCALE } from "../core/Constants.js";
+import { ATTACKS, RECOIL } from "../data/combat.js";
 import { textureManager } from "../core/TextureManager.js";
 
 const NECK_TUCK = 6;
@@ -7,6 +8,9 @@ const FOOT_SINK = 1;
 const HAND_INSET = 6;
 const LIE_HEIGHT = 12;
 const FALL_ANGLE = 1.45;
+// At full extension a punch is thrown toward the camera; shortening the arm keeps the fist's
+// visible reach in line with the hit reach of ATTACKS.punch.
+const PUNCH_FORESHORTEN = 0.3;
 
 function createSprite(tex) {
   return textureManager.createSprite(tex);
@@ -237,6 +241,7 @@ export class FighterView extends Container {
     const swing = Math.sin(model.t * 0.25);
     const lyingDrop = (-this.hipY - LIE_HEIGHT) * this.scaleF;
     let lean = 0;
+    FA.scale.y = 1;
 
     switch (model.state) {
       case "idle":
@@ -283,6 +288,7 @@ export class FighterView extends Container {
         if (model.attackKind === "punch" || model.attackKind === "hook") {
           const power = model.attackKind === "hook" ? 1.25 : 1;
           FA.rotation = restArm + (-1.65 * power - restArm) * ext;
+          if (model.attackKind === "punch") FA.scale.y = 1 - PUNCH_FORESHORTEN * ext;
           BA.rotation = restArm + 0.5 * power * ext;
           FL.rotation = 0.2 * ext;
           BL.rotation = -0.2 * ext;
@@ -295,6 +301,22 @@ export class FighterView extends Container {
           lean = -0.15 * ext;
           this.body.y -= 2 * ext;
         }
+        break;
+      }
+      case "recoil": {
+        const p = 1 - Math.max(0, model.recoilTimer) / RECOIL[model.recoilKind];
+        if (model.recoilKind === "shoot") {
+          // arm levelled at the target, muzzle flip in the first few frames
+          FA.rotation = -1.55 - 0.3 * Math.max(0, 1 - p * 4);
+          lean = -0.04;
+        } else {
+          // throw: wind back, then release forward
+          FA.rotation = p < 0.3 ? restArm + 0.9 * (p / 0.3) : restArm + 0.9 - 2.4 * Math.min(1, (p - 0.3) / 0.3);
+          lean = p < 0.3 ? -0.08 : 0.08;
+        }
+        BA.rotation = restArm + 0.3;
+        FL.rotation = 0.15;
+        BL.rotation = -0.15;
         break;
       }
       case "hurt": {

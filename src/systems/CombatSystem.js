@@ -59,11 +59,7 @@ export class CombatSystem {
       meta,
     });
     this.fx.sound("swing");
-    // throwing recoil pose, no melee hit attached
-    p.state = "attack";
-    p.attackKind = "punch";
-    p.attackTimer = 0;
-    p.hitDone = true;
+    p.startRecoil("throw");
   }
 
   updateThrows(dt) {
@@ -129,18 +125,13 @@ export class CombatSystem {
       gy: owner.y,
       ry,
       vx: dir * BULLET.speed,
-      dmg: owner.isPlayer ? BULLET.playerDamage : BULLET.enemyDamage,
+      dmg: owner.isPlayer ? WEAPONS.pistol.dmg : BULLET.enemyDamage,
       fromPlayer: owner.isPlayer,
     }));
 
     this.fx.spark(owner.x + dir * 30, ry, false, 0xfff3c0);
     this.fx.sound("gunshot");
-
-    // firing recoil pose
-    owner.state = "attack";
-    owner.attackKind = "punch";
-    owner.attackTimer = 0;
-    owner.hitDone = true;
+    owner.startRecoil("shoot");
   }
 
   updateBullets(dt) {
@@ -180,7 +171,7 @@ export class CombatSystem {
               this.fx.sound("heavyHit");
             }
             if (b.fromPlayer) {
-              this.registerRangedHit();
+              if (!blocked) this.registerRangedHit();
               if (killed) this.onKill(t);
             } else if (killed) {
               this.game.shake = 12;
@@ -304,7 +295,7 @@ export class CombatSystem {
       const z = e.z;
       const killed = e.applyHit(dmg, Math.sign(dx) || 1, SUPER.knockback, true);
       this.emit({ type: "hit", source: "super", attacker: p, target: e, dmg, z, killed });
-      this.fx.popup(e.x, e.y - 75 * e.scaleF, `-${SUPER.damage}`, 0xffe14a);
+      this.fx.popup(e.x, e.y - 75 * e.scaleF, `-${dmg}`, 0xffe14a);
       this.fx.particles("burst", e.x, e.y - 35 * e.scaleF);
       if (killed) this.onKill(e);
     }
@@ -386,8 +377,9 @@ export class CombatSystem {
     return kd;
   }
 
+  /** Every active swing hits every target and crate in reach once (getActiveHit stops after hitDone). */
   resolveHits() {
-    const { playerModel, enemies, crates } = this.world;
+    const { playerModel, enemies } = this.world;
     const all = [playerModel, ...enemies];
     for (const atk of all) {
       if (!atk || (atk.state !== "attack" && !atk.airKick)) continue;
@@ -395,114 +387,123 @@ export class CombatSystem {
       if (!hit) continue;
 
       const targets = atk.isPlayer ? enemies : [playerModel];
-      let landed = false;
+      let landed = null;
       for (const t of targets) {
-        if (!t || !t.vulnerable) continue;
-
-        if (atk.airKick) {
-          if (atk.z < t.z - HIT.airKickBelow * atk.scaleF || atk.z > t.z + HIT.airKickAbove * t.scaleF) continue;
-        } else if (atk.z > HIT.jumpAttackMinZ) {
-          if (Math.abs(t.z - atk.z) > HIT.jumpAttackZTolerance * atk.scaleF) continue;
-        } else if (t.z > HIT.groundTargetMaxZ * t.scaleF) {
-          continue;
+        if (t && this.inReach(atk, hit, t)) {
+          this.landHit(atk, hit, t);
+          landed = t;
         }
-
-        const extraLane = (hit.weapon && hit.weapon.kind === "stick") ? HIT.stickExtraLane : 0;
-        const maxLaneDist = (COMBAT_DEPTH_BAND + extraLane) * Math.min(atk.scaleF, t.scaleF);
-        if (Math.abs(t.y - atk.y) > maxLaneDist) continue;
-
-        const tRadius = t.hurtbox ? t.hurtbox.rx : 16 * t.scaleF;
-        const dx = (t.x - atk.x) * atk.facing;
-        if (dx < -tRadius * HIT.reachBehind || dx > hit.range + tRadius * HIT.reachAhead) continue;
-
-        let kd = this.rollKnockdown(atk, hit, t);
-
-        // shielders or fighters equipped with a trash lid block frontal hits
-        let dmg = hit.dmg;
-        let blocked = false;
-        const hasShield = t.archetype === "shielder" || (t.weapon && t.weapon.def && t.weapon.def.shield);
-        if (hasShield && t.state !== "down" && t.facing === -atk.facing) {
-          dmg = Math.max(1, Math.round(dmg * HIT.blockDamageMul));
-          kd = false;
-          blocked = true;
-          if (t.isPlayer && t.weapon) {
-            t.weapon.uses--;
-            if (t.weapon.uses <= 0) {
-              this.fx.spark(t.x, t.y - 40 * t.scaleF, true, 0xb9c2cc);
-              t.setWeapon(null);
-            }
-          }
-        }
-
-        atk.hitDone = true;
-        landed = true;
-
-        const z = t.z;
-        const killed = t.applyHit(dmg, atk.facing, blocked ? HIT.blockKnockback : hit.kb, kd);
-        this.emit({
-          type: blocked ? "block" : "hit", source: "melee", kind: hit.kind, weapon: hit.weapon?.kind ?? null,
-          attacker: atk, target: t, dmg, z, knockdown: kd, killed,
-        });
-        const hitX = (atk.x + t.x) / 2;
-        const hitY = t.y - 42 * t.scaleF;
-        if (blocked) {
-          this.fx.spark(hitX, hitY, false, 0xb9c2cc);
-          this.fx.popup(t.x, t.y - 75 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
-          this.fx.sound("clang");
-          this.world.hitstop = HIT.hitstopBlocked;
-        } else {
-          this.fx.spark(hitX, hitY, hit.kind !== "punch");
-          this.fx.popup(
-            t.x, t.y - 75 * t.scaleF, `-${dmg}`,
-            atk.isPlayer ? (hit.kind === "punch" ? 0xffe7b0 : 0xffb347) : 0xff6a5e,
-          );
-          this.fx.sound(hit.kind === "kick" || hit.weapon || atk.boss ? "heavyHit" : "hit");
-          this.world.hitstop = hit.kind === "punch" ? HIT.hitstopPunch : HIT.hitstopHeavy;
-        }
-        this.fx.particles("puff", hitX, hitY);
-
-        if (atk.isPlayer) {
-          this.game.super = Math.min(SUPER.max, this.game.super + (hit.kind === "punch" ? SUPER.gainPunch : SUPER.gainHeavy));
-        }
-
-        // getting floored knocks the weapon out of your hands
-        if (t.isPlayer && t.state === "down" && t.weapon) {
-          const w = t.weapon;
-          this.world.spawnPickup(t.x + atk.facing * 38, t.y + 6, w.kind, { uses: w.uses, ammo: w.ammo });
-          t.setWeapon(null);
-        }
-
-        if (atk.isPlayer) {
-          this.game.combo++;
-          this.game.comboTimer = COMBO_WINDOW;
-          this.game.score += hit.kind === "kick" ? SCORE.kick : SCORE.punch;
-          if (hit.weapon) {
-            hit.weapon.uses--;
-            if (hit.weapon.uses <= 0) {
-              this.fx.spark(t.x, t.y - 40 * t.scaleF, true, 0xd9b380);
-              this.fx.sound(hit.weapon.kind === "bottle" ? "glassBreak" : "crateBreak");
-              atk.setWeapon(null);
-            }
-          }
-          if (killed) this.onKill(t);
-        } else if (killed) {
-          this.game.shake = 12;
-        }
-        break;
       }
+      const crateHit = atk.isPlayer && this.hitCratesInReach(atk, hit);
 
-      if (!landed && atk.isPlayer) {
-        for (const c of crates) {
-          const maxLaneDist = COMBAT_DEPTH_BAND * atk.scaleF;
-          if (Math.abs(c.y - atk.y) > maxLaneDist) continue;
-          if (atk.z > HIT.crateMaxZ * atk.scaleF) continue;
-          const dx = (c.x - atk.x) * atk.facing;
-          if (dx < -HIT.crateReachBehind * atk.scaleF || dx > hit.range + HIT.crateReachAhead * atk.scaleF) continue;
-          atk.hitDone = true;
-          this.hitCrate(c, 1);
-          break;
+      if (landed || crateHit) atk.hitDone = true;
+      if (landed && atk.isPlayer && hit.weapon) this.wearWeapon(atk, hit.weapon, landed);
+    }
+  }
+
+  inReach(atk, hit, t) {
+    if (!t.vulnerable) return false;
+    if (atk.airKick) {
+      if (atk.z < t.z - HIT.airKickBelow * atk.scaleF || atk.z > t.z + HIT.airKickAbove * t.scaleF) return false;
+    } else if (atk.z > HIT.jumpAttackMinZ) {
+      if (Math.abs(t.z - atk.z) > HIT.jumpAttackZTolerance * atk.scaleF) return false;
+    } else if (t.z > (t.state === "down" ? HIT.juggleMaxZ : HIT.groundTargetMaxZ * t.scaleF)) {
+      return false;
+    }
+
+    const extraLane = (hit.weapon && hit.weapon.kind === "stick") ? HIT.stickExtraLane : 0;
+    const maxLaneDist = (COMBAT_DEPTH_BAND + extraLane) * Math.min(atk.scaleF, t.scaleF);
+    if (Math.abs(t.y - atk.y) > maxLaneDist) return false;
+
+    const tRadius = t.hurtbox ? t.hurtbox.rx : 16 * t.scaleF;
+    const dx = (t.x - atk.x) * atk.facing;
+    return dx >= -tRadius * HIT.reachBehind && dx <= hit.range + tRadius * HIT.reachAhead;
+  }
+
+  landHit(atk, hit, t) {
+    let kd = this.rollKnockdown(atk, hit, t);
+
+    // shielders or fighters equipped with a trash lid block frontal hits
+    let dmg = hit.dmg;
+    let blocked = false;
+    const hasShield = t.archetype === "shielder" || (t.weapon && t.weapon.def && t.weapon.def.shield);
+    if (hasShield && t.state !== "down" && t.facing === -atk.facing) {
+      dmg = Math.max(1, Math.round(dmg * HIT.blockDamageMul));
+      kd = false;
+      blocked = true;
+      if (t.isPlayer && t.weapon) {
+        t.weapon.uses--;
+        if (t.weapon.uses <= 0) {
+          this.fx.spark(t.x, t.y - 40 * t.scaleF, true, 0xb9c2cc);
+          t.setWeapon(null);
         }
       }
     }
+
+    const z = t.z;
+    const killed = t.applyHit(dmg, atk.facing, blocked ? HIT.blockKnockback : hit.kb, kd);
+    this.emit({
+      type: blocked ? "block" : "hit", source: "melee", kind: hit.kind, weapon: hit.weapon?.kind ?? null,
+      attacker: atk, target: t, dmg, z, knockdown: kd, killed,
+    });
+    const hitX = (atk.x + t.x) / 2;
+    const hitY = t.y - 42 * t.scaleF;
+    if (blocked) {
+      this.fx.spark(hitX, hitY, false, 0xb9c2cc);
+      this.fx.popup(t.x, t.y - 75 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
+      this.fx.sound("clang");
+      this.world.hitstop = HIT.hitstopBlocked;
+    } else {
+      this.fx.spark(hitX, hitY, hit.kind !== "punch");
+      this.fx.popup(
+        t.x, t.y - 75 * t.scaleF, `-${dmg}`,
+        atk.isPlayer ? (hit.kind === "punch" ? 0xffe7b0 : 0xffb347) : 0xff6a5e,
+      );
+      this.fx.sound(hit.kind === "kick" || hit.weapon || atk.boss ? "heavyHit" : "hit");
+      this.world.hitstop = hit.kind === "punch" ? HIT.hitstopPunch : HIT.hitstopHeavy;
+    }
+    this.fx.particles("puff", hitX, hitY);
+
+    // getting floored knocks the weapon out of your hands
+    if (t.isPlayer && t.state === "down" && t.weapon) {
+      const w = t.weapon;
+      this.world.spawnPickup(t.x + atk.facing * 38, t.y + 6, w.kind, { uses: w.uses, ammo: w.ammo });
+      t.setWeapon(null);
+    }
+
+    if (atk.isPlayer) {
+      // a block is a stalemate: it doesn't feed combo, score or the super meter
+      if (!blocked) {
+        this.game.super = Math.min(SUPER.max, this.game.super + (hit.kind === "punch" ? SUPER.gainPunch : SUPER.gainHeavy));
+        this.game.combo++;
+        this.game.comboTimer = COMBO_WINDOW;
+        this.game.score += hit.kind === "kick" ? SCORE.kick : SCORE.punch;
+      }
+      if (killed) this.onKill(t);
+    } else if (killed) {
+      this.game.shake = 12;
+    }
+  }
+
+  /** One use per swing, however many targets it hit. */
+  wearWeapon(atk, weapon, lastTarget) {
+    weapon.uses--;
+    if (weapon.uses > 0) return;
+    this.fx.spark(lastTarget.x, lastTarget.y - 40 * lastTarget.scaleF, true, 0xd9b380);
+    this.fx.sound(weapon.kind === "bottle" ? "glassBreak" : "crateBreak");
+    atk.setWeapon(null);
+  }
+
+  hitCratesInReach(atk, hit) {
+    if (atk.z > HIT.crateMaxZ * atk.scaleF) return false;
+    let any = false;
+    for (const c of [...this.world.crates]) {
+      if (Math.abs(c.y - atk.y) > COMBAT_DEPTH_BAND * atk.scaleF) continue;
+      const dx = (c.x - atk.x) * atk.facing;
+      if (dx < -HIT.crateReachBehind * atk.scaleF || dx > hit.range + HIT.crateReachAhead * atk.scaleF) continue;
+      this.hitCrate(c, 1);
+      any = true;
+    }
+    return any;
   }
 }

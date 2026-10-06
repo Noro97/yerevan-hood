@@ -23,7 +23,8 @@ export const PROJECTILE_DEPTH_BAND = 22;
 
 export const HIT = {
   stickExtraLane: 6,
-  groundTargetMaxZ: 18, // × target scaleF: ground attacks pass under targets higher than this
+  groundTargetMaxZ: 18, // × target scaleF: ground attacks pass under jumping targets higher than this
+  juggleMaxZ: 28, // knocked-down targets can be juggled by ground attacks up to this height (a knockdown peaks ≈ 20)
   jumpAttackMinZ: 6, // attacker z above this is a jumping attack
   jumpAttackZTolerance: 22, // × attacker scaleF
   airKickBelow: 8, // × attacker scaleF
@@ -78,10 +79,9 @@ export const SUPER = {
 
 export const BULLET = {
   speed: 9.5,
-  playerDamage: 24,
-  enemyDamage: 9,
+  enemyDamage: 9, // player shots use WEAPONS.pistol.dmg
   muzzleX: 26,
-  muzzleHeight: 52, // × owner scaleF
+  muzzleHeight: 96, // × owner scaleF: shoulder height of the rig, where the levelled arm holds the gun
   knockback: 5,
   blockedDamage: 2,
   blockedKnockback: 2,
@@ -94,7 +94,7 @@ export const THROW = {
   speed: 8,
   life: 46,
   startX: 24,
-  height: 50, // × thrower scaleF
+  height: 92, // × thrower scaleF: release point just under the shoulder
   knockback: 7,
   fallbackDamage: 14,
   maxTargetZ: 22, // × target scaleF
@@ -129,4 +129,36 @@ export const PICKUP_EFFECTS = {
   rageBuff: 480,
   coinScore: 75,
   medalScore: 500,
+};
+
+// Non-attacking recoil poses (shooting, throwing): no lunge, no hit, no combo chain.
+export const RECOIL = {
+  shoot: 16,
+  throw: 14,
+  playerCooldown: 5,
+  enemyCooldown: 20,
+};
+
+export const AI = {
+  standoff: 36, // × scaleF: preferred distance to the player
+  bossStandoff: 42, // × scaleF
+  gunnerStandoff: 215,
+  deadzoneX: 6,
+  deadzoneY: 5,
+  laneJitter: 12, // × scaleF: random lane offset while approaching
+  retargetMin: 18,
+  retargetRange: 22,
+  flipSideChance: 0.18,
+  punchChance: 0.65,
+  rusherReach: 75, // × scaleF: rushers start their lunging punch from further out
+  attackLaneFactor: 0.6, // attack once within this share of the real melee lane
+  separationX: 34,
+  separationY: 16,
+  separationPush: 0.6,
+  shootLane: 14, // × scaleF
+  shootMinDistance: 80,
+  shootCooldownMin: 140,
+  shootCooldownRange: 60,
+  cooldownBase: 55,
+  cooldownRange: 45,
 };

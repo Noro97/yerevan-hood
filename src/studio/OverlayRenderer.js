@@ -77,7 +77,7 @@ export class OverlayRenderer {
         const hit = f.getActiveHit();
         if (hit) {
           const x1 = f.x + f.facing * hit.range;
-          const chest = f.y - f.z - 62 * f.scaleF;
+          const chest = f.y - f.z - 92 * f.scaleF;
           g.rect(Math.min(f.x, x1), chest - 10 * f.scaleF, Math.abs(x1 - f.x), 20 * f.scaleF).fill({ color: COLORS.hit, alpha: 0.45 });
           const band = COMBAT_DEPTH_BAND * f.scaleF;
           g.rect(Math.min(f.x, x1), f.y - band, Math.abs(x1 - f.x), band * 2).stroke({ width: 1.5, color: COLORS.hit, alpha: 0.9 });
