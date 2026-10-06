@@ -65,13 +65,12 @@ export class GameApp {
         dt *= this.timeScale;
       }
       
-      // Update scene (controller)
+      // Presses are only consumed by a frame that actually ran, so a paused app (or one
+      // driven externally through step()) keeps them for the next simulated frame.
       if (dt > 0) {
         this.scenes.update(dt);
+        this.input.update();
       }
-      
-      // Clear input buffers at the end of the frame
-      this.input.update();
     });
   }
 
