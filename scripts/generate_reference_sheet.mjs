@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -10,6 +10,7 @@ const OUTPUT_SVG = path.join(ROOT, "assets", "textures_reference_sheet.svg");
 const OUTPUT_PNG = path.join(ROOT, "assets", "textures_reference_sheet.png");
 
 const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf-8"));
+const TOTAL = Object.keys(manifest).length;
 
 function getBase64(relPath) {
   const full = path.join(ROOT, relPath);
@@ -67,12 +68,12 @@ svg += `
 
 <text x="${PAD}" y="70" fill="#ffd060" font-size="44" class="title" letter-spacing="2">YEREVAN HOOD · ԵՐԵՎԱՆ ՀՈՒԴ</text>
 <text x="${PAD}" y="112" fill="#ffffff" font-size="22" class="label" font-weight="700">COMPLETE TEXTURE ATLAS &amp; ASSET SPECIFICATION SHEET</text>
-<text x="${PAD}" y="145" fill="#a49eb5" font-size="15" class="label">Comprehensive Visual Catalog of All 72 Standalone Texture Files (32-Bit PNG Only · RGBA Straight Alpha) · PixiJS v8 Engine</text>
+<text x="${PAD}" y="145" fill="#a49eb5" font-size="15" class="label">Comprehensive Visual Catalog of All ${TOTAL} Standalone Texture Files (32-Bit PNG Only · RGBA Straight Alpha) · PixiJS v8 Engine</text>
 
 <!-- Header Badges -->
 <g transform="translate(${W - PAD - 680}, 50)">
   <rect width="125" height="34" rx="6" fill="#ffd060"/>
-  <text x="62.5" y="22" fill="#181224" font-size="13" class="label" font-weight="900" text-anchor="middle">72 TEXTURES</text>
+  <text x="62.5" y="22" fill="#181224" font-size="13" class="label" font-weight="900" text-anchor="middle">${TOTAL} TEXTURES</text>
 
   <rect x="135" width="120" height="34" rx="6" fill="#6bc9ff"/>
   <text x="195" y="22" fill="#102538" font-size="13" class="label" font-weight="900" text-anchor="middle">PNG ONLY</text>
@@ -100,9 +101,6 @@ function sectionHeader(y, num, title, subtitle, color = "#ffd060") {
   `;
 }
 
-// ==========================================
-// SECTION 01: ENVIRONMENT & PARALLAX LAYERS (7)
-// ==========================================
 let curY = 230;
 svg += sectionHeader(curY, "01", "ENVIRONMENT & PARALLAX LAYERS (7 TEXTURES)", "Multi-layer streetscape backdrop spanning up to 3560px", "#6bc9ff");
 curY += 76;
@@ -156,9 +154,6 @@ for (const layer of envLayers) {
 
 curY += 4 * (envRowH + 15) + 30;
 
-// ==========================================
-// SECTION 02: BUILDINGS & TUFF FACADES (10)
-// ==========================================
 svg += sectionHeader(curY, "02", "STREET BUILDINGS & TUFF FACADES (10 TEXTURES)", "Modular pink & orange volcanic tuff facades with signs & graffiti", "#ff9a60");
 curY += 76;
 
@@ -216,9 +211,6 @@ for (let i = 0; i < 10; i++) {
 
 curY += 2 * (bRowH + 18) + 30;
 
-// ==========================================
-// SECTION 03: CHARACTERS & MODULAR BODY RIGS (29)
-// ==========================================
 svg += sectionHeader(curY, "03", "CHARACTERS & MODULAR BODY RIGS (29 TEXTURES: 7 RIGS × 4 PARTS + SHADOW)", "Modular skeletal limbs animated with rotation, depth hierarchy & flash filters", "#e86b85");
 curY += 76;
 
@@ -342,9 +334,6 @@ for (let i = 0; i < charKeys.length; i++) {
 
 curY += cRowH + 30;
 
-// ==========================================
-// SECTION 04: PROPS, OBJECTS & WEAPONS (9)
-// ==========================================
 svg += sectionHeader(curY, "04", "STREET PROPS, COMBAT OBJECTS & WEAPONS (9 TEXTURES)", "Street environment props, breakable loot crates, bullets & in-hand melee weapons", "#ffd060");
 curY += 76;
 
@@ -406,9 +395,6 @@ for (let i = 0; i < propItems.length; i++) {
 
 curY += 2 * (pRowH + 16) + 30;
 
-// ==========================================
-// SECTION 05: PICKUPS & STREET ITEMS (11)
-// ==========================================
 svg += sectionHeader(curY, "05", "STREET PICKUPS & CONSUMABLES (11 TEXTURES)", "Interactive food pickups, traditional Armenian drinks, money, and dropped loot", "#7ec850");
 curY += 76;
 
@@ -486,9 +472,6 @@ for (let i = 0; i < pickupItems.length; i++) {
 
 curY += 2 * (pickRowH + 16) + 30;
 
-// ==========================================
-// SECTION 06: STORY DIALOGUE PORTRAITS (6)
-// ==========================================
 svg += sectionHeader(curY, "06", "STORY & DIALOGUE PORTRAITS (6 TEXTURES)", "High-contrast story dialogue portraits rendered in cutscenes and boss encounters", "#c084fc");
 curY += 76;
 
@@ -513,7 +496,7 @@ for (let i = 0; i < portraitItems.length; i++) {
 
   const prevBoxW = 110;
   const prevBoxH = 175;
-  const scale = 2.0; // scale 52x52 to ~104px
+  const scale = Math.min((prevBoxW - 10) / meta.width, (prevBoxH - 10) / meta.height);
   const dw = meta.width * scale;
   const dh = meta.height * scale;
   const dx = 5 + (prevBoxW - dw) / 2;
@@ -541,26 +524,22 @@ for (let i = 0; i < portraitItems.length; i++) {
 
 curY += portRowH + 35;
 
-// ==========================================
-// FOOTER
-// ==========================================
 svg += `
 <!-- FOOTER -->
 <g transform="translate(${PAD}, ${curY})">
   <rect width="${CONTENT_W}" height="70" rx="8" fill="#151220" stroke="#251f33" stroke-width="1"/>
-  <text x="30" y="42" fill="#8e86a0" font-size="14" class="label">Yerevan Hood Texture Atlas · Generated: ${new Date().toISOString().split("T")[0]} · Total Textures Cataloged: 72 · All Dimensions True-to-Scale</text>
+  <text x="30" y="42" fill="#8e86a0" font-size="14" class="label">Yerevan Hood Texture Atlas · Generated: ${new Date().toISOString().split("T")[0]} · Total Textures Cataloged: ${TOTAL} · All Dimensions True-to-Scale</text>
   <text x="${CONTENT_W - 30}" y="42" fill="#ffd060" font-size="14" class="mono" font-weight="700" text-anchor="end">READY FOR PREVIEW &amp; PRODUCTION</text>
 </g>
 </svg>
 `;
 
-// Write files
 fs.writeFileSync(OUTPUT_SVG, svg, "utf-8");
 console.log(`Generated SVG Reference Sheet: ${OUTPUT_SVG} (${(fs.statSync(OUTPUT_SVG).size / 1024).toFixed(1)} KB)`);
 
 try {
   console.log("Rendering high-res PNG via macOS sips...");
-  execSync(`/usr/bin/sips -s format png "${OUTPUT_SVG}" --out "${OUTPUT_PNG}"`, { stdio: "inherit" });
+  execFileSync("/usr/bin/sips", ["-s", "format", "png", OUTPUT_SVG, "--out", OUTPUT_PNG], { stdio: "inherit" });
   console.log(`Rendered PNG Reference Sheet: ${OUTPUT_PNG} (${(fs.statSync(OUTPUT_PNG).size / 1024).toFixed(1)} KB)`);
   if (fs.existsSync(OUTPUT_SVG)) {
     fs.unlinkSync(OUTPUT_SVG);

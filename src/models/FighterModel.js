@@ -70,6 +70,7 @@ export class FighterModel {
     this.weaponScale = 1.0;
     this.aiCool = 0;
     this.shootCd = 0;
+    this.triggerShoot = false;
     this.aiTimer = 0;
     this.aiSide = rng.next() < 0.5 ? -1 : 1;
     this.aiOffY = 0;

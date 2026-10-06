@@ -1,5 +1,5 @@
 import { Container, Graphics, Sprite, Text } from "pixi.js";
-import { ARM_FONT, PALETTES, CHAR_SCALE } from "../core/Constants.js";
+import { ARM_FONT, PALETTES, CHAR_SCALE, BASE_SPEED } from "../core/Constants.js";
 import { ATTACKS, RECOIL, WEAPONS, HIT } from "../data/combat.js";
 import { ITEMS, handLength } from "../data/items.js";
 import { textureManager } from "../core/TextureManager.js";
@@ -187,7 +187,9 @@ export class FighterView extends Container {
   }
 
   redrawEnemyHp(hp, maxHp) {
-    if (!this.hpFg) return;
+    if (!this.hpFg || (hp === this.drawnHp && maxHp === this.drawnMaxHp)) return;
+    this.drawnHp = hp;
+    this.drawnMaxHp = maxHp;
     const r = Math.max(hp, 0) / maxHp;
     this.hpFg.clear();
     if (r > 0) {
@@ -230,7 +232,7 @@ export class FighterView extends Container {
 
     // Tint pipeline: impact flash > enrage pulse > buffs > lamp glow
     let baseTint = model.isPlayer
-      ? (model.power > 1 ? 0xffc36b : (model.speed > 2.7 ? 0xc8e8ff : 0xffffff))
+      ? (model.power > 1 ? 0xffc36b : (model.speed > BASE_SPEED ? 0xc8e8ff : 0xffffff))
       : 0xffffff;
     if (model.enraged) {
       baseTint = Math.sin(model.t * 0.2) > 0 ? 0xff9a8a : 0xffd0c0;

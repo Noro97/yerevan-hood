@@ -825,12 +825,12 @@ export class GameplayScene extends Scene {
         this.clampToStreet(minEnemyX, maxEnemyX);
 
         // Atmosphere & feedback driven by fighter physics
-        const LAMPS = this.bg.propsList.filter((p) => p.type === "lamp").map((p) => p.x);
+
         const allFighters = this.playerModel ? [this.playerModel, ...this.enemies] : this.enemies;
         for (const f of allFighters) {
           // warm pool of light when standing near a street lamp
           let nearest = 1e9;
-          for (const lx of LAMPS) nearest = Math.min(nearest, Math.abs(f.x - lx));
+          for (const lx of this.bg.lampXs) nearest = Math.min(nearest, Math.abs(f.x - lx));
           f.lampGlow = Math.max(0, 1 - nearest / 150);
           // landing dust (jumps, knockdowns, deaths from height)
           if (f.justLanded > 8) this.particles.dust(f.x, f.y, 6);
