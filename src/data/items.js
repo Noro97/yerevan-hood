@@ -1,4 +1,6 @@
 import { CHAR_SCALE } from "../core/Constants.js";
+import overrides from "./tuning/items.js";
+import { clone, deepAssign, diff } from "./patch.js";
 
 // Item sizes: one table, so the same object is the same size on the floor and in a hand.
 //
@@ -33,3 +35,8 @@ export const ITEMS = {
 export const displayMeters = (kind) => ITEMS[kind].real * ITEMS[kind].show;
 export const floorLength = (kind) => displayMeters(kind) * FLOOR_PX_PER_METER;
 export const handLength = (kind) => displayMeters(kind) * UNITS_PER_METER;
+
+export const ITEM_DEFAULTS = clone(ITEMS);
+export const itemChanges = () => diff(ITEM_DEFAULTS, ITEMS);
+export const resetItems = () => deepAssign(ITEMS, ITEM_DEFAULTS);
+deepAssign(ITEMS, overrides);

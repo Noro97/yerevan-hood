@@ -5,17 +5,12 @@ export const WORLD_W = 2880;
 export const FLOOR_TOP = 392;
 export const FLOOR_BOTTOM = 538;
 export const FINAL_WAVE = 9;
-export const BASE_SPEED = 2.7;
 
 export const CHAR_SCALE = 0.70;
 
-export { ATTACKS, AIR_KICK, WEAPONS, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND } from "../data/combat.js";
+export { ATTACKS, AIR_KICK, WEAPONS, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND, GRAVITY, JUMP_VEL, BASE_SPEED } from "../data/combat.js";
 
 export const ARM_FONT = '"Noto Sans Armenian", "Arial Unicode MS", Arial, sans-serif';
-
-// Tuned 2.5D brawler jump physics (punchy 26f arc instead of floaty 32f lunar hangtime)
-export const GRAVITY = 0.72;
-export const JUMP_VEL = 9.6;
 
 // Prop and crate scales (world props aren't part of the item size table in data/items.js)
 export const SCALE_CONFIG = {

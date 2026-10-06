@@ -95,17 +95,30 @@ Inspired by the genre classics — Streets of Rage's disposable weapons and food
 
 ```bash
 npm install
-npm run serve          # http://localhost:8123 (game) and http://localhost:8123/studio.html (studio)
+npm run studio         # http://127.0.0.1:8124 (game) and /studio.html — studio can save data files
+npm run serve          # plain static server on :8123 (studio edits then download instead of saving)
 npm run check          # lint + unit tests + headless browser tests
 ```
 
-**Studio** (`studio.html`) runs the real game scene one fixed frame at a time with a seeded RNG:
-play / pause / step frames at 0.1–8×, one-click scenarios with pass/fail checks (Run instantly or
-Watch in real time), a fighter inspector (click a fighter on the canvas), hit/hurt-box and lane
-overlays, a spawner and a combat log. Scenarios live in `src/studio/scenarios.js`; ones marked
-`knownBug` describe intended behaviour that is still broken and are expected to fail until fixed.
+**Studio** (`studio.html`) runs the real game scene one fixed frame at a time with a seeded RNG
+(play / pause / step at 0.1–8×; click a fighter to inspect it):
 
-**Tests**: `npm test` runs Node unit tests for the models and `CombatSystem`; `npm run test:e2e`
-runs headless Chrome (set `CHROME_PATH` if Chrome isn't in the default location) — three seeded
-golden playthroughs that must not change unless intended (`UPDATE_GOLDEN=1` re-records them) and
-every studio scenario.
+| Tab | What it does |
+|---|---|
+| Scenarios | one-click setups with pass/fail checks — *Run* instantly or *Watch* in real time |
+| Inspect / Spawn | live fighter state and editable fields; spawn enemies, bosses, weapons, items, waves |
+| Balance | every number in `src/data/combat.js`, live; *Save* writes only the changes to `src/data/tuning/balance.js` |
+| Level | floor, layers, buildings and props of `src/data/level.js` (drag props/buildings on the canvas) |
+| Items | the shared item size table next to a metre ruler; saves to `src/data/tuning/items.js` |
+| Rig | all characters in any pose, frame by frame; texture gallery |
+| Record | record keyboard play, replay it exactly, turn it into a scenario snippet for `scenarios.js` |
+| Screens | preview dialogue, banners, game over, victory, pause, HUD states, popups; sound board |
+| View | hit/hurt boxes, lanes, reach, projectiles, rig pivots, velocity, push radius, metre ruler |
+
+Scenarios live in `src/studio/scenarios.js`; ones marked `knownBug` describe intended behaviour
+that is still broken and are expected to fail until fixed.
+
+**Tests**: `npm test` runs Node unit tests for the models, `CombatSystem` and the data tables;
+`npm run test:e2e` runs headless Chrome (set `CHROME_PATH` if Chrome isn't in the default
+location) — three seeded golden playthroughs that must not change unless intended
+(`UPDATE_GOLDEN=1` re-records them), every studio scenario, and the studio tools.

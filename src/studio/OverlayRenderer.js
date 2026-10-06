@@ -10,6 +10,8 @@ export const OVERLAY_LAYERS = {
   lanes: { label: "Depth lane", hint: "player's melee lane (yellow)", on: true },
   projectiles: { label: "Projectiles", hint: "bullet and thrown-weapon sweeps", on: true },
   pivots: { label: "Rig pivots", hint: "anchor of every body part", on: false },
+  velocity: { label: "Velocity", hint: "walk velocity (cyan, ×8) and knockback (orange, ×4)", on: false },
+  separation: { label: "Push radius", hint: "body-collision radius (depth compressed ×2)", on: false },
   bounds: { label: "Floor bounds", hint: "walkable strip", on: false },
   ruler: { label: "Metre ruler", hint: "2 m scale next to the player (ticks every 10 cm)", on: false },
 };
@@ -110,6 +112,16 @@ export class OverlayRenderer {
 
       if (f === selected) {
         g.ellipse(f.x, footY, hb.rx + 7, hb.ry + 4).stroke({ width: 2.5, color: COLORS.select, alpha: 1 });
+      }
+
+      if (L.separation && f.alive) {
+        g.ellipse(f.x, footY, 18 * f.scaleF, 9 * f.scaleF).stroke({ width: 1, color: COLORS.bounds, alpha: 0.8 });
+      }
+
+      if (L.velocity && f.alive) {
+        const cy = footY - f.z - 45 * f.scaleF;
+        if (f.vx || f.vy) g.moveTo(f.x, cy).lineTo(f.x + f.vx * 8, cy + f.vy * 8).stroke({ width: 2, color: COLORS.thrown, alpha: 1 });
+        if (Math.abs(f.kbX) > 0.05) g.moveTo(f.x, cy + 6).lineTo(f.x + f.kbX * 4, cy + 6).stroke({ width: 2, color: 0xff9f0a, alpha: 1 });
       }
 
       if (L.pivots) {

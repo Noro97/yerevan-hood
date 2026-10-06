@@ -1,6 +1,9 @@
 import { rng } from "../core/Random.js";
 import { WEAPONS } from "../data/combat.js";
 import { BulletModel } from "../models/BulletModel.js";
+import { SCENARIOS, FREE_PLAY } from "./scenarios.js";
+
+const findScenario = (id) => (id === FREE_PLAY.id ? FREE_PLAY : SCENARIOS.find((s) => s.id === id));
 
 const fmt = (v) => (typeof v === "number" ? String(Math.round(v * 100) / 100) : JSON.stringify(v));
 
@@ -63,7 +66,8 @@ export class ScenarioRunner {
     this.pins = [];
     this.god = false;
     this.api = this.makeApi();
-    sc.setup?.(this.api);
+    (sc.setup ?? findScenario(sc.base)?.setup)?.(this.api);
+    if (sc.god) this.god = true;
   }
 
   inputFor(sc, frame) {

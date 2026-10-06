@@ -8,9 +8,18 @@ import { STORY } from "../core/Constants.js";
  *
  *   input: [{ at, press: [codes] }, { from, to, hold: [codes] }]  or  (frame, api) => { press, hold }
  *   onFrame(api, frame): per-frame probe, store measurements in api.memo
+ *   base: id of another scenario (or "free") whose setup() to use when this one has none
+ *   god: keep the player's HP full
  *   knownBug: the scenario describes the intended behaviour and currently fails; the suite
  *             expects it to fail until the fix lands, then flags it so the marker gets removed.
  */
+
+/** The studio's default street: the player and one dummy. Recordings use it as their base. */
+export const FREE_PLAY = {
+  id: "free",
+  title: "Free play",
+  setup: (s) => s.dummy(430),
+};
 
 const PLAYER_SCALE = 1.08 * 0.7;
 const DUMMY_RADIUS = 16 * 0.7;
