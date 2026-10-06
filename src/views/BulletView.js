@@ -1,4 +1,4 @@
-import { Container, Sprite } from "pixi.js";
+import { Container } from "pixi.js";
 import { CHAR_SCALE } from "../core/Constants.js";
 import { textureManager } from "../core/TextureManager.js";
 

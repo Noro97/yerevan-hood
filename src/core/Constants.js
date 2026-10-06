@@ -9,15 +9,13 @@ export const BASE_SPEED = 2.7;
 
 export const CHAR_SCALE = 0.70;
 
+export { ATTACKS, AIR_KICK, WEAPONS, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND } from "../data/combat.js";
+
 export const ARM_FONT = '"Noto Sans Armenian", "Arial Unicode MS", Arial, sans-serif';
 
 // Tuned 2.5D brawler jump physics (punchy 26f arc instead of floaty 32f lunar hangtime)
 export const GRAVITY = 0.72;
 export const JUMP_VEL = 9.6;
-
-// Combat lane tolerances (replaces the broken 9.8px tolerance)
-export const COMBAT_DEPTH_BAND = 28;
-export const PROJECTILE_DEPTH_BAND = 22;
 
 // Standardized Sizing System (1 meter ≈ 50 pixels)
 export const SCALE_CONFIG = {
@@ -44,15 +42,6 @@ export const SCALE_CONFIG = {
   CRATE_SCALE: 0.85,  // ~42x41px wooden crate
 };
 
-export const ATTACKS = {
-  punch: { dur: 18, from: 5, to: 11, range: 46, dmg: 9, kb: 4, lunge: 1.8 },
-  kick: { dur: 26, from: 9, to: 16, range: 54, dmg: 14, kb: 8, lunge: 1.2 },
-  // 3rd hit of the J-J-J chain: slower, harder, sends them flying
-  hook: { dur: 22, from: 6, to: 13, range: 50, dmg: 15, kb: 9, lunge: 2.4 },
-};
-
-export const AIR_KICK = { range: 52, dmg: 17, kb: 9 };
-
 export const PALETTES = {
   player: { jacket: 0x1f2126, stripe: 0xffffff, pants: 0x1f2126, skin: 0xd9a06b, cap: 0x2a2d33, shoe: 0xf2f2f2, beard: 0x32241a },
   thug1: { jacket: 0x4a5d23, stripe: 0x2e3a16, pants: 0x3b3f45, skin: 0xc89465, cap: 0x33401a, shoe: 0x222222, beard: 0x2a1d12 },
@@ -61,13 +50,6 @@ export const PALETTES = {
   gunner: { jacket: 0x8a3a3a, stripe: 0x5e2727, pants: 0x2b2b30, skin: 0xd2a070, cap: 0x5e2727, shoe: 0x222222, beard: null },
   shielder: { jacket: 0x4a5a6e, stripe: 0x36424f, pants: 0x2b2b30, skin: 0xd2a070, cap: 0x36424f, shoe: 0x222222, beard: null },
   boss: { jacket: 0x14161a, stripe: 0xd4af37, pants: 0x14161a, skin: 0xc89465, cap: 0x0e0f12, shoe: 0xffffff, beard: 0x1c130c, chain: true },
-};
-
-export const WEAPONS = {
-  stick: { melee: true, range: 60, dmg: 16, kb: 6, uses: 8, throwDmg: 16, label: "ՓԱՅՏ" },
-  bottle: { melee: true, range: 50, dmg: 13, kb: 5, uses: 4, throwDmg: 20, shatter: true, label: "ՇԻՇ" },
-  pistol: { melee: false, ammo: 6, dmg: 24, throwDmg: 10, label: "ՄԱԿԱՐՈՎ" },
-  lid: { melee: true, range: 45, dmg: 8, kb: 4, uses: 6, throwDmg: 14, shield: true, label: "ԿԱՓԱԿ" },
 };
 
 export const FACES = {

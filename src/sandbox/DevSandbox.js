@@ -4,7 +4,7 @@
  */
 
 import { Graphics } from "pixi.js";
-import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, CHAR_SCALE, PALETTES, WEAPONS, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND, SCALE_CONFIG } from "../core/Constants.js";
+import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, CHAR_SCALE, WEAPONS, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND } from "../core/Constants.js";
 import { SandboxState } from "./SandboxState.js";
 import { injectSandboxStyles } from "./sandboxStyles.js";
 import { textureManager } from "../core/TextureManager.js";

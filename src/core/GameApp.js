@@ -12,6 +12,18 @@ export class GameApp {
     this.timeScale = 1.0;
     this.paused = false;
     this.stepFrame = false;
+    this.stepFramesCount = 0;
+    // When true every tick advances exactly one frame (dt = timeScale), independent of
+    // display refresh rate — required for deterministic replays.
+    this.fixedStep = false;
+  }
+
+  /** Runs `frames` simulation frames synchronously at dt = 1 (tests, studio frame stepping). */
+  step(frames = 1) {
+    for (let i = 0; i < frames; i++) {
+      this.scenes.update(1);
+      this.input.update();
+    }
   }
 
   async init() {
@@ -37,7 +49,7 @@ export class GameApp {
 
     // Set up the main ticker loop
     this.pixiApp.ticker.add((tk) => {
-      let dt = Math.min(tk.deltaTime, 2.5);
+      let dt = this.fixedStep ? 1 : Math.min(tk.deltaTime, 2.5);
 
       if (this.paused) {
         if (this.stepFramesCount > 0) {

@@ -1,13 +1,13 @@
 import { Container, Graphics, Text, ColorMatrixFilter } from "pixi.js";
 import { Scene } from "../core/Scene.js";
 import { ParticleSystem } from "../views/ParticleSystem.js";
-import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, ARM_FONT, WEAPONS, STORY, CHAPTERS, chapterOf, CHAR_SCALE, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND, SCALE_CONFIG } from "../core/Constants.js";
+import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, ARM_FONT, WEAPONS, STORY, CHAPTERS, chapterOf } from "../core/Constants.js";
 import { sfx } from "../core/SoundManager.js?v=3";
+import { rng } from "../core/Random.js";
 import { GameModel } from "../models/GameModel.js";
 import { FighterModel } from "../models/FighterModel.js";
 import { CrateModel } from "../models/CrateModel.js";
 import { PickupModel } from "../models/PickupModel.js";
-import { BulletModel } from "../models/BulletModel.js";
 import { BackgroundView } from "../views/BackgroundView.js";
 import { FighterView } from "../views/FighterView.js";
 import { CrateView } from "../views/CrateView.js";
@@ -16,6 +16,16 @@ import { BulletView } from "../views/BulletView.js";
 import { HUDView } from "../views/HUDView.js";
 import { DialogueView } from "../views/DialogueView.js";
 import { OverlayView } from "../views/OverlayView.js";
+import { CombatSystem } from "../systems/CombatSystem.js";
+
+// kind -> [model list property, model→view map property]
+const ENTITY_KINDS = {
+  enemy: ["enemies", "enemyViews"],
+  crate: ["crates", "crateViews"],
+  pickup: ["pickups", "pickupViews"],
+  bullet: ["bullets", "bulletViews"],
+  throw: ["throws", "throwViews"],
+};
 
 export class GameplayScene extends Scene {
   constructor() {
@@ -37,6 +47,7 @@ export class GameplayScene extends Scene {
     this.crateViews = new Map();
     this.pickupViews = new Map();
     this.bulletViews = new Map();
+    this.throwViews = new Map();
     this.effects = [];
     this.popups = [];   // Floating damage/heal numbers
     this.throws = [];   // Weapons in flight
@@ -45,6 +56,13 @@ export class GameplayScene extends Scene {
     this.floorBottom = FLOOR_BOTTOM;
     this.showBoundsGuide = false;
     this.boundsGraphics = null;
+
+    this.combat = new CombatSystem(this, {
+      spark: (x, y, big, color) => this.spawnSpark(x, y, big, color),
+      popup: (x, y, text, color, size) => this.spawnPopup(x, y, text, color, size),
+      sound: (name) => sfx[name](),
+      particles: (kind, x, y, arg) => this.particles[kind](x, y, arg),
+    });
   }
 
   onEnter(app) {
@@ -142,6 +160,7 @@ export class GameplayScene extends Scene {
     this.effects = [];
     this.popups = [];  // views already destroyed via removeChildren
     this.throws = [];
+    this.throwViews.clear();
 
     // Rebuild environmental props (Ladas, Lamps, Bins)
     this.bg.buildProps(this.actors);
@@ -234,9 +253,9 @@ export class GameplayScene extends Scene {
       const cfg = {
         paletteKey: types[(i + n) % types.length],
         hp: 26 + n * 6,
-        speed: 1.25 + Math.random() * 0.6 + n * 0.05,
+        speed: 1.25 + rng.next() * 0.6 + n * 0.05,
         power: 0.5 + n * 0.045,
-        scale: 0.98 + Math.random() * 0.1,
+        scale: 0.98 + rng.next() * 0.1,
         aiCool: Math.max(45, 85 - n * 4),
       };
       // archetype mix-ins as the waves climb
@@ -303,23 +322,18 @@ export class GameplayScene extends Scene {
   spawnCrates(n) {
     const num = 2 + (n % 2);
     for (let i = 0; i < num && this.crates.length < 4; i++) {
-      const x = Math.max(80, Math.min(WORLD_W - 80, this.game.camX + 100 + Math.random() * (W - 200)));
-      const y = this.floorTop + 14 + Math.random() * (this.floorBottom - this.floorTop - 28);
+      const x = Math.max(80, Math.min(WORLD_W - 80, this.game.camX + 100 + rng.next() * (W - 200)));
+      const y = this.floorTop + 14 + rng.next() * (this.floorBottom - this.floorTop - 28);
       
-      const model = new CrateModel({ x, y });
-      const view = new CrateView();
-
-      this.crates.push(model);
-      this.crateViews.set(model, view);
-      this.actors.addChild(view);
+      this.spawnEntity("crate", new CrateModel({ x, y }), new CrateView());
     }
   }
 
   spawnEnemy(cfg) {
-    const fromLeft = Math.random() < 0.5;
+    const fromLeft = rng.next() < 0.5;
     let x = fromLeft ? this.game.camX - 70 : this.game.camX + W + 70;
     x = Math.max(-80, Math.min(WORLD_W + 80, x));
-    const y = this.floorTop + 10 + Math.random() * (this.floorBottom - this.floorTop - 20);
+    const y = this.floorTop + 10 + rng.next() * (this.floorBottom - this.floorTop - 20);
 
     const model = new FighterModel({
       x,
@@ -335,22 +349,17 @@ export class GameplayScene extends Scene {
     model.archetype = cfg.archetype || null;
     model.lungeMul = cfg.lungeMul || 1;
     model.aiCool = cfg.aiCool;
-    model.shootCd = 60 + Math.random() * 60;
+    model.shootCd = 60 + rng.next() * 60;
     if (model.archetype === "shielder") {
       model.setWeapon({ kind: "lid", def: { melee: false, label: "ԿԱՓԱԿ" } });
     }
 
-    const view = new FighterView(cfg.paletteKey, false, cfg.scale, cfg.name);
-
-    this.enemies.push(model);
-    this.enemyViews.set(model, view);
-    this.actors.addChild(view);
-    return model;
+    return this.spawnEntity("enemy", model, new FighterView(cfg.paletteKey, false, cfg.scale, cfg.name));
   }
 
   spawnCustomEnemy(cfg = {}, x = null, y = null) {
     if (x === null || x === undefined) {
-      x = this.playerModel ? this.playerModel.x + (Math.random() < 0.5 ? -140 : 140) : this.game.camX + W / 2;
+      x = this.playerModel ? this.playerModel.x + (rng.next() < 0.5 ? -140 : 140) : this.game.camX + W / 2;
     }
     if (y === null || y === undefined) {
       y = this.playerModel ? this.playerModel.y : this.floorTop + 50;
@@ -373,7 +382,7 @@ export class GameplayScene extends Scene {
     model.archetype = cfg.archetype || null;
     model.lungeMul = cfg.lungeMul || (cfg.archetype === "rusher" ? 3.2 : 1);
     model.aiCool = cfg.aiCool || (cfg.archetype === "grappler" ? 95 : 60);
-    model.shootCd = 60 + Math.random() * 60;
+    model.shootCd = 60 + rng.next() * 60;
     model.weaponScale = cfg.weaponScale || 1.0;
 
     if (cfg.weapon && cfg.weapon !== "none") {
@@ -391,29 +400,15 @@ export class GameplayScene extends Scene {
       view.setWeaponGraphic(model.weapon);
     }
 
-    this.enemies.push(model);
-    this.enemyViews.set(model, view);
-    this.actors.addChild(view);
-    return model;
+    return this.spawnEntity("enemy", model, view);
   }
 
   removeEnemy(enemyModel) {
-    if (!enemyModel) return;
-    const view = this.enemyViews.get(enemyModel);
-    if (view) {
-      view.destroy({ children: true, texture: false });
-      this.enemyViews.delete(enemyModel);
-    }
-    const idx = this.enemies.indexOf(enemyModel);
-    if (idx !== -1) {
-      this.enemies.splice(idx, 1);
-    }
+    this.despawn("enemy", enemyModel);
   }
 
   clearAllEnemies() {
-    for (const e of [...this.enemies]) {
-      this.removeEnemy(e);
-    }
+    this.despawnAll("enemy");
   }
 
   killAllEnemies() {
@@ -421,7 +416,7 @@ export class GameplayScene extends Scene {
       if (e.alive) {
         e.hp = 0;
         e.applyHit(999, 1, 10, true);
-        this.onKill(e);
+        this.combat.onKill(e);
       }
     }
   }
@@ -436,36 +431,15 @@ export class GameplayScene extends Scene {
     x = Math.max(40, Math.min(WORLD_W - 40, x));
     y = Math.max(this.floorTop + 10, Math.min(this.floorBottom - 10, y));
 
-    const model = new CrateModel({ x, y });
-    const view = new CrateView();
-    this.crates.push(model);
-    this.crateViews.set(model, view);
-    this.actors.addChild(view);
-    return model;
+    return this.spawnEntity("crate", new CrateModel({ x, y }), new CrateView());
   }
 
   removeCrate(crateModel) {
-    if (!crateModel) return;
-    const view = this.crateViews.get(crateModel);
-    if (view) {
-      view.destroy({ children: true, texture: false });
-      this.crateViews.delete(crateModel);
-    }
-    const idx = this.crates.indexOf(crateModel);
-    if (idx !== -1) {
-      this.crates.splice(idx, 1);
-    }
+    this.despawn("crate", crateModel);
   }
 
   clearAllCrates() {
-    for (const c of [...this.crates]) {
-      const view = this.crateViews.get(c);
-      if (view) {
-        view.destroy({ children: true, texture: false });
-        this.crateViews.delete(c);
-      }
-    }
-    this.crates = [];
+    this.despawnAll("crate");
   }
 
   spawnCustomPickup(type = "shawarma", x = null, y = null) {
@@ -478,36 +452,15 @@ export class GameplayScene extends Scene {
     x = Math.max(40, Math.min(WORLD_W - 40, x));
     y = Math.max(this.floorTop + 10, Math.min(this.floorBottom - 10, y));
 
-    const model = new PickupModel({ x, y, type });
-    const view = new PickupView(type);
-    this.pickups.push(model);
-    this.pickupViews.set(model, view);
-    this.actors.addChild(view);
-    return model;
+    return this.spawnEntity("pickup", new PickupModel({ x, y, type }), new PickupView(type));
   }
 
   removePickup(pickupModel) {
-    if (!pickupModel) return;
-    const view = this.pickupViews.get(pickupModel);
-    if (view) {
-      view.destroy({ children: true, texture: false });
-      this.pickupViews.delete(pickupModel);
-    }
-    const idx = this.pickups.indexOf(pickupModel);
-    if (idx !== -1) {
-      this.pickups.splice(idx, 1);
-    }
+    this.despawn("pickup", pickupModel);
   }
 
   clearAllPickups() {
-    for (const p of [...this.pickups]) {
-      const view = this.pickupViews.get(p);
-      if (view) {
-        view.destroy({ children: true, texture: false });
-        this.pickupViews.delete(p);
-      }
-    }
-    this.pickups = [];
+    this.despawnAll("pickup");
   }
 
   setWave(n) {
@@ -559,513 +512,47 @@ export class GameplayScene extends Scene {
     }
   }
 
-  throwWeapon() {
-    const p = this.playerModel;
-    const w = p.weapon;
-    if (!w || p.z > 0) return;
-    if (p.state !== "idle" && p.state !== "walk") return;
-    const meta = { uses: w.uses, ammo: w.ammo };
-    p.setWeapon(null);
-
-    const view = new PickupView(w.kind);
-    view.shadow.visible = false;
-    view.zIndex = 9998;
-    this.actors.addChild(view);
-    this.throws.push({
-      x: p.x + p.facing * 24,
-      prevX: p.x + p.facing * 24,
-      gy: p.y,
-      ry: p.y - 50 * p.scaleF,
-      vx: p.facing * 8,
-      life: 46,
-      type: w.kind,
-      meta,
-      view,
-    });
-    sfx.swing();
-    // throwing recoil pose, no melee hit attached
-    p.state = "attack";
-    p.attackKind = "punch";
-    p.attackTimer = 0;
-    p.hitDone = true;
-  }
-
-  updateThrows(dt) {
-    for (let i = this.throws.length - 1; i >= 0; i--) {
-      const th = this.throws[i];
-      const prevX = th.prevX !== undefined ? th.prevX : th.x;
-      th.prevX = th.x;
-      th.x += th.vx * dt;
-      th.life -= dt;
-      th.view.x = th.x;
-      th.view.y = th.ry;
-      th.view.icon.rotation += 0.38 * dt * Math.sign(th.vx);
-
-      let stopped = th.life <= 0;
-      if (!stopped) {
-        const minX = Math.min(prevX, th.x) - 16;
-        const maxX = Math.max(prevX, th.x) + 16;
-        for (const t of this.enemies) {
-          if (!t.vulnerable || t.z > 22 * t.scaleF) continue;
-          if (t.x >= minX && t.x <= maxX && Math.abs(t.y - th.gy) <= PROJECTILE_DEPTH_BAND) {
-            const wDef = WEAPONS[th.type];
-            const dmg = wDef ? wDef.throwDmg : 14;
-            const killed = t.applyHit(dmg, Math.sign(th.vx), 7, th.type !== "pistol");
-            this.spawnPopup(t.x, t.y - 75 * t.scaleF, `-${dmg}`, 0xffe7b0);
-            this.spawnSpark(th.x, th.ry, true, th.type === "bottle" ? 0x9fe8d8 : 0xffb347);
-            if (th.type === "bottle") {
-              if (sfx.glassBreak) sfx.glassBreak(); else sfx.hit();
-            } else {
-              if (sfx.heavyHit) sfx.heavyHit(); else sfx.hit();
-            }
-            this.game.combo++;
-            this.game.comboTimer = 110;
-            this.game.score += 20;
-            this.game.super = Math.min(100, this.game.super + 6);
-            if (killed) this.onKill(t);
-            stopped = true;
-            break;
-          }
-        }
-      }
-      if (!stopped) {
-        const minX = Math.min(prevX, th.x) - 18;
-        const maxX = Math.max(prevX, th.x) + 18;
-        for (const c of this.crates) {
-          if (c.x >= minX && c.x <= maxX && Math.abs(c.y - th.gy) <= PROJECTILE_DEPTH_BAND) {
-            this.hitCrate(c, 2);
-            stopped = true;
-            break;
-          }
-        }
-      }
-      if (stopped) {
-        th.view.destroy({ children: true, texture: false });
-        if (WEAPONS[th.type] && WEAPONS[th.type].shatter) {
-          // bottles never survive a flight
-          this.spawnSpark(th.x, th.gy - 18, true, 0x9fe8d8);
-          this.particles.glass(th.x, th.gy - 18);
-        } else {
-          this.spawnPickup(th.x, th.gy, th.type, th.meta);
-        }
-        this.throws.splice(i, 1);
-      }
-    }
-  }
-
-  fireBullet(owner, dir) {
-    const ry = owner.y - 52 * owner.scaleF;
-    const bulletX = owner.x + dir * 26;
-    const dmg = owner.isPlayer ? 24 : 9;
-
-    const model = new BulletModel({
-      x: bulletX,
-      gy: owner.y,
-      ry,
-      vx: dir * 9.5,
-      dmg,
-      fromPlayer: owner.isPlayer,
-    });
-
-    const view = new BulletView();
-    this.bullets.push(model);
-    this.bulletViews.set(model, view);
-    this.actors.addChild(view);
-
-    this.spawnSpark(owner.x + dir * 30, ry, false, 0xfff3c0);
-    sfx.gunshot();
-
-    // Reset firing recoil pose
-    owner.state = "attack";
-    owner.attackKind = "punch";
-    owner.attackTimer = 0;
-    owner.hitDone = true;
-  }
-
-  updateBullets(dt) {
-    for (let i = this.bullets.length - 1; i >= 0; i--) {
-      const b = this.bullets[i];
-      b.update(dt, this.game.camX);
-
-      let dead = b.removed;
-      if (!dead) {
-        const targets = b.fromPlayer
-          ? this.enemies.filter((e) => e.vulnerable)
-          : (this.playerModel && this.playerModel.vulnerable ? [this.playerModel] : []);
-
-        const minX = Math.min(b.prevX, b.x) - 12;
-        const maxX = Math.max(b.prevX, b.x) + 12;
-
-        for (const t of targets) {
-          if (t.z > 20 * t.scaleF) continue; // Jumped over bullet
-          if (t.x >= minX && t.x <= maxX && Math.abs(t.y - b.gy) <= PROJECTILE_DEPTH_BAND) {
-            let blocked = false;
-            const bulletDir = Math.sign(b.vx);
-            if (t.isPlayer && t.weapon && t.weapon.kind === "lid" && (bulletDir !== t.facing)) {
-              blocked = true;
-            } else if (!t.isPlayer && t.archetype === "shielder" && (bulletDir !== t.facing)) {
-              blocked = true;
-            }
-
-            const killed = t.applyHit(blocked ? 2 : b.dmg, bulletDir, blocked ? 2 : 5);
-            if (blocked) {
-              this.spawnSpark(b.x, b.ry, false, 0xb9c2cc);
-              this.spawnPopup(t.x, t.y - 75 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
-              if (sfx.clang) sfx.clang(); else sfx.hit();
-            } else {
-              this.spawnSpark(b.x, b.ry, false);
-              this.spawnPopup(t.x, t.y - 75 * t.scaleF, `-${b.dmg}`, b.fromPlayer ? 0xffe7b0 : 0xff6a5e);
-              if (sfx.heavyHit) sfx.heavyHit(); else sfx.hit();
-            }
-            if (b.fromPlayer) {
-              this.game.combo++;
-              this.game.comboTimer = 110;
-              this.game.score += 20;
-              this.game.super = Math.min(100, this.game.super + 6);
-              if (killed) this.onKill(t);
-            } else if (killed) {
-              this.game.shake = 12;
-            }
-            dead = true;
-            b.removed = true;
-            break;
-          }
-        }
-      }
-
-      if (!dead && b.fromPlayer) {
-        const minX = Math.min(b.prevX, b.x) - 14;
-        const maxX = Math.max(b.prevX, b.x) + 14;
-        for (const c of this.crates) {
-          if (c.x >= minX && c.x <= maxX && Math.abs(c.y - b.gy) <= PROJECTILE_DEPTH_BAND) {
-            this.hitCrate(c, 2);
-            dead = true;
-            b.removed = true;
-            break;
-          }
-        }
-      }
-
-      if (dead) {
-        const view = this.bulletViews.get(b);
-        if (view) {
-          view.destroy({ children: true, texture: false });
-          this.bulletViews.delete(b);
-        }
-        this.bullets.splice(i, 1);
-      }
-    }
-  }
-
   spawnPickup(x, y, type, meta = null) {
     // keep loot reachable: clamp into the walkable strip
     x = Math.max(40, Math.min(WORLD_W - 40, x));
     y = Math.max(FLOOR_TOP, Math.min(FLOOR_BOTTOM, y));
-    const model = new PickupModel({ x, y, type, meta });
-    const view = new PickupView(type);
+    return this.spawnEntity("pickup", new PickupModel({ x, y, type, meta }), new PickupView(type));
+  }
 
-    this.pickups.push(model);
-    this.pickupViews.set(model, view);
+  spawnEntity(kind, model, view) {
+    const [list, views] = ENTITY_KINDS[kind];
+    this[list].push(model);
+    this[views].set(model, view);
     this.actors.addChild(view);
+    return model;
   }
 
-  applyPickup(p) {
-    const pm = this.playerModel;
-    const px = pm.x, py = pm.y - 95 * pm.scaleF;
-    switch (p.type) {
-      case "shawarma":
-        pm.hp = Math.min(pm.maxHp, pm.hp + 30);
-        this.spawnPopup(px, py, "+30", 0x7ec850);
-        break;
-      case "khorovats":
-        pm.hp = pm.maxHp;
-        this.spawnPopup(px, py, "ԽՈՐՈՎԱԾ · FULL HP", 0x7ec850);
-        break;
-      case "tan":
-        this.game.buffs.speed = 600;
-        this.spawnPopup(px, py, "ԹԱՆ · SPEED", 0x9fd8ff);
-        break;
-      case "cognac":
-        this.game.buffs.rage = 480;
-        this.spawnPopup(px, py, "ԿՈՆՅԱԿ · RAGE x2", 0xffb347);
-        break;
-      case "coin":
-        this.game.score += 75;
-        this.spawnPopup(px, py, "+75", 0xd4af37);
-        break;
-      case "medal":
-        this.game.score += 500;
-        this.spawnPopup(px, py, "ՄԵԴԱԼԸ! +500", 0xd4af37, 18);
-        break;
-      case "stick":
-      case "bottle":
-      case "pistol":
-      case "lid": {
-        if (pm.weapon) return false;
-        const def = WEAPONS[p.type];
-        if (!def) return false;
-        pm.setWeapon({
-          kind: p.type,
-          def,
-          uses: p.meta?.uses ?? def.uses,
-          ammo: p.meta?.ammo ?? def.ammo,
-        });
-        this.spawnPopup(px, py, def.label, 0xe8cf9e);
-        break;
-      }
+  despawn(kind, model) {
+    const [list, views] = ENTITY_KINDS[kind];
+    const view = this[views].get(model);
+    if (view) {
+      view.destroy({ children: true });
+      this[views].delete(model);
     }
-    if (p.type === "coin") {
-      sfx.coin();
-    } else {
-      sfx.pickup();
-    }
-    return true;
+    const idx = this[list].indexOf(model);
+    if (idx !== -1) this[list].splice(idx, 1);
   }
 
-  lootRoll() {
-    const r = Math.random();
-    if (r < 0.28) return "shawarma";
-    if (r < 0.46) return "coin";
-    if (r < 0.6) return "stick";
-    if (r < 0.7) return "bottle";
-    if (r < 0.8) return "tan";
-    if (r < 0.88) return "khorovats";
-    if (r < 0.95) return "cognac";
-    return "pistol";
+  despawnAll(kind) {
+    const [list] = ENTITY_KINDS[kind];
+    for (const model of [...this[list]]) this.despawn(kind, model);
   }
 
-  // ԿԱՅԾԱԿ: whirlwind super — costs a full meter, clears the space around Davo
-  trySuper() {
-    const p = this.playerModel;
-    if (this.game.super < 100 || !p || !p.alive || p.z > 0) return;
-    if (p.state !== "idle" && p.state !== "walk") return;
-    this.game.super = 0;
-    p.superSpin = 20;
-    p.invul = Math.max(p.invul, 26);
-    this.game.shake = 16;
-    this.hitstop = 5;
-    this.spawnPopup(p.x, p.y - 120 * p.scaleF, "ԿԱՅԾԱԿ!", 0xffe14a, 22);
-    this.particles.burst(p.x, p.y - 40, true);
-    sfx.super();
-    for (const e of this.enemies) {
-      if (!e.alive) continue;
-      const dx = e.x - p.x;
-      if (Math.abs(dx) > 160 * p.scaleF || Math.abs(e.y - p.y) > 42 * p.scaleF) continue;
-      if (e.z > 40 * e.scaleF) continue;
-      e.invul = 0; // the storm respects no block
-      if (!e.vulnerable) continue; // ...but grounded knockdowns stay safe
-      const killed = e.applyHit(Math.round(38 * p.power), Math.sign(dx) || 1, 11, true);
-      this.spawnPopup(e.x, e.y - 75 * e.scaleF, "-38", 0xffe14a);
-      this.particles.burst(e.x, e.y - 35 * e.scaleF);
-      if (killed) this.onKill(e);
-    }
+  spawnBullet(model) {
+    return this.spawnEntity("bullet", model, new BulletView());
   }
 
-  onKill(t) {
-    this.game.score += 100 + this.game.wave * 20 + (t.boss ? 300 : 0);
-    this.game.shake = t.boss ? 14 : 7;
-    this.particles.burst(t.x, t.y - 40, t.boss);
-    if (t.boss) this.game.zoomPunch = 14; // cinematic zoom kick
-    if (t.gunner) {
-      // their pistol survives with whatever they hadn't fired yet
-      this.spawnPickup(t.x, t.y, "pistol", { ammo: 3 + Math.floor(Math.random() * 4) });
-    } else if (t.boss && this.game.wave === 9 && !this.game.endless) {
-      this.spawnPickup(t.x, t.y, "medal");
-    } else if (Math.random() < Math.min(0.45, 0.28 + this.game.wave * 0.02) || t.boss) {
-      // food gets more common as the hood gets meaner
-      this.spawnPickup(t.x, t.y, this.lootRoll());
-    }
-  }
-
-  hitCrate(c, dmg) {
-    const broken = c.hit(dmg);
-    this.spawnSpark(c.x, c.y - 16, false, 0xd9b380);
-    this.particles.debris(c.x, c.y);
-    if (broken) {
-      sfx.crateBreak();
-      const view = this.crateViews.get(c);
-      if (view) {
-        view.destroy({ children: true, texture: false });
-        this.crateViews.delete(c);
-      }
-      this.crates.splice(this.crates.indexOf(c), 1);
-      this.spawnPickup(c.x, c.y, this.lootRoll());
-    } else {
-      sfx.hit();
-    }
-  }
-
-  resolveBodyCollisions() {
-    const fighters = this.playerModel && this.playerModel.alive
-      ? [this.playerModel, ...this.enemies]
-      : [...this.enemies];
-
-    for (let i = 0; i < fighters.length; i++) {
-      const f1 = fighters[i];
-      if (!f1 || !f1.alive || f1.z > 8 || f1.state === "down") continue;
-      for (let j = i + 1; j < fighters.length; j++) {
-        const f2 = fighters[j];
-        if (!f2 || !f2.alive || f2.z > 8 || f2.state === "down") continue;
-
-        const dx = f1.x - f2.x;
-        const dy = (f1.y - f2.y) * 2.0; // isometric depth compression
-        const dist = Math.hypot(dx, dy);
-        const minDist = (18 * f1.scaleF) + (18 * f2.scaleF);
-
-        if (dist < minDist && dist > 0.001) {
-          const overlap = (minDist - dist) / dist;
-          const pushX = dx * overlap * 0.25;
-          const pushY = (dy / 2.0) * overlap * 0.25;
-
-          f1.x += pushX;
-          f1.y += pushY;
-          f2.x -= pushX;
-          f2.y -= pushY;
-        }
-      }
-    }
-  }
-
-  resolveHits() {
-    const all = [this.playerModel, ...this.enemies];
-    for (const atk of all) {
-      if (!atk || (atk.state !== "attack" && !atk.airKick)) continue;
-      const hit = atk.getActiveHit();
-      if (!hit) continue;
-
-      const targets = atk.isPlayer ? this.enemies : [this.playerModel];
-      let landed = false;
-      for (const t of targets) {
-        if (!t || !t.vulnerable) continue;
-
-        // 1. Z-axis (vertical / jump height) check:
-        // Ground attacks cannot hit airborne jumping targets, and airborne attacks must match height
-        if (atk.airKick) {
-          // Dropkick connects while kicker is within the vertical span of target
-          if (atk.z < t.z - 8 * atk.scaleF || atk.z > t.z + 65 * t.scaleF) continue;
-        } else if (atk.z > 6) {
-          // Jumping punch/kick connects only if target is at similar airborne altitude
-          if (Math.abs(t.z - atk.z) > 22 * atk.scaleF) continue;
-        } else {
-          // Ground attack: target must be grounded (cannot punch airborne targets jumping over)
-          if (t.z > 18 * t.scaleF) continue;
-        }
-
-        // 2. Depth / Y-lane alignment check (both fighters must be on the same horizontal lane)
-        const extraLane = (hit.weapon && hit.weapon.kind === "stick") ? 6 : 0;
-        const maxLaneDist = (COMBAT_DEPTH_BAND + extraLane) * Math.min(atk.scaleF, t.scaleF);
-        if (Math.abs(t.y - atk.y) > maxLaneDist) continue;
-        
-        // 3. Forward reach check (target must be in front and within strike reach)
-        const tRadius = t.hurtbox ? t.hurtbox.rx : 16 * t.scaleF;
-        const dx = (t.x - atk.x) * atk.facing;
-        if (dx < -tRadius * 0.5 || dx > hit.range + tRadius * 0.8) continue;
-
-        // Knockdown calculations
-        let kd = hit.knockdown;
-        if (!kd && atk.isPlayer) {
-          if (hit.kind === "kick" && Math.random() < 0.35) kd = true;
-          if (hit.kind === "hook" && Math.random() < 0.6) kd = true;
-          if (hit.weapon && hit.weapon.kind === "stick" && Math.random() < 0.5) kd = true;
-        } else if (!kd && !atk.isPlayer) {
-          if (atk.archetype === "grappler") kd = true; // the bear hug always slams
-          else if (atk.boss && Math.random() < 0.5) kd = true;
-          else if (hit.kind === "kick" && Math.random() < 0.18) kd = true;
-        }
-        if (kd && t.boss && Math.random() < 0.6) kd = false;
-
-        // shielders or fighters equipped with a trash lid block frontal hits
-        let dmg = hit.dmg;
-        let blocked = false;
-        const hasShield = t.archetype === "shielder" || (t.weapon && t.weapon.def && t.weapon.def.shield);
-        if (hasShield && t.state !== "down" && t.facing === -atk.facing) {
-          dmg = Math.max(1, Math.round(dmg * 0.25));
-          kd = false;
-          blocked = true;
-          if (t.isPlayer && t.weapon) {
-            t.weapon.uses--;
-            if (t.weapon.uses <= 0) {
-              this.spawnSpark(t.x, t.y - 40 * t.scaleF, true, 0xb9c2cc);
-              t.setWeapon(null);
-            }
-          }
-        }
-
-        atk.hitDone = true;
-        landed = true;
-
-        const killed = t.applyHit(dmg, atk.facing, blocked ? 2 : hit.kb, kd);
-        const hitX = (atk.x + t.x) / 2;
-        const hitY = t.y - 42 * t.scaleF;
-        if (blocked) {
-          this.spawnSpark(hitX, hitY, false, 0xb9c2cc);
-          this.spawnPopup(t.x, t.y - 75 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
-          if (sfx.clang) sfx.clang(); else sfx.hit();
-          this.hitstop = 3;
-        } else {
-          this.spawnSpark(hitX, hitY, hit.kind !== "punch");
-          this.spawnPopup(
-            t.x, t.y - 75 * t.scaleF, `-${dmg}`,
-            atk.isPlayer ? (hit.kind === "punch" ? 0xffe7b0 : 0xffb347) : 0xff6a5e
-          );
-          if (hit.kind === "kick" || hit.weapon || atk.boss) {
-            if (sfx.heavyHit) sfx.heavyHit(); else sfx.hit();
-          } else {
-            sfx.hit();
-          }
-          this.hitstop = hit.kind === "punch" ? 2.5 : 4;
-        }
-        this.particles.puff(hitX, hitY);
-
-        // landing hits charges the ԿԱՅԾԱԿ meter
-        if (atk.isPlayer) {
-          this.game.super = Math.min(100, this.game.super + (hit.kind === "punch" ? 5 : 7));
-        }
-
-        // getting floored knocks the weapon out of your hands
-        if (t.isPlayer && t.state === "down" && t.weapon) {
-          const w = t.weapon;
-          this.spawnPickup(t.x + atk.facing * 38, t.y + 6, w.kind, { uses: w.uses, ammo: w.ammo });
-          t.setWeapon(null);
-        }
-
-        if (atk.isPlayer) {
-          this.game.combo++;
-          this.game.comboTimer = 110;
-          this.game.score += hit.kind === "kick" ? 15 : 10;
-          if (hit.weapon) {
-            hit.weapon.uses--;
-            if (hit.weapon.uses <= 0) {
-              this.spawnSpark(t.x, t.y - 40 * t.scaleF, true, 0xd9b380);
-              if (hit.weapon.kind === "bottle") {
-                if (sfx.glassBreak) sfx.glassBreak(); else sfx.hit();
-              } else {
-                if (sfx.crateBreak) sfx.crateBreak(); else sfx.hit();
-              }
-              atk.setWeapon(null);
-            }
-          }
-          if (killed) this.onKill(t);
-        } else if (killed) {
-          this.game.shake = 12;
-        }
-        break;
-      }
-
-      // Check crates
-      if (!landed && atk.isPlayer) {
-        for (const c of this.crates) {
-          const maxLaneDist = COMBAT_DEPTH_BAND * atk.scaleF;
-          if (Math.abs(c.y - atk.y) > maxLaneDist) continue;
-          if (atk.z > 24 * atk.scaleF) continue;
-          const dx = (c.x - atk.x) * atk.facing;
-          if (dx < -8 * atk.scaleF || dx > hit.range + 16 * atk.scaleF) continue;
-          atk.hitDone = true;
-          this.hitCrate(c, 1);
-          break;
-        }
-      }
-    }
+  spawnThrow(throwModel) {
+    const view = new PickupView(throwModel.type);
+    view.shadow.visible = false;
+    this.spawnEntity("throw", throwModel, view);
+    view.zIndex = 9998;
+    return throwModel;
   }
 
   updateCamera(dt) {
@@ -1095,25 +582,6 @@ export class GameplayScene extends Scene {
 
     // Scroll backgrounds
     this.bg.updateCamera(this.game.camX);
-  }
-
-  updatePickups(dt) {
-    for (let i = this.pickups.length - 1; i >= 0; i--) {
-      const p = this.pickups[i];
-      p.update(dt);
-
-      if (this.playerModel && this.playerModel.alive && Math.abs(this.playerModel.x - p.x) < 30 && Math.abs(this.playerModel.y - p.y) < 24) {
-        if (this.applyPickup(p)) {
-          p.removed = true;
-          const view = this.pickupViews.get(p);
-          if (view) {
-            view.destroy({ children: true, texture: false });
-            this.pickupViews.delete(p);
-          }
-          this.pickups.splice(i, 1);
-        }
-      }
-    }
   }
 
   updateEffects(dt) {
@@ -1243,7 +711,7 @@ export class GameplayScene extends Scene {
               this.playerModel.tryAirKick();
             } else if (w && w.kind === "pistol") {
               if (this.playerModel.state === "idle" || this.playerModel.state === "walk") {
-                this.fireBullet(this.playerModel, this.playerModel.facing);
+                this.combat.fireBullet(this.playerModel, this.playerModel.facing);
                 w.ammo--;
                 if (w.ammo <= 0) this.playerModel.setWeapon(null);
               }
@@ -1254,14 +722,14 @@ export class GameplayScene extends Scene {
             if (this.playerModel.z > 0) this.playerModel.tryAirKick();
             else this.playerModel.tryAttack("kick");
           } else if (this.app.input.isPressed("KeyE")) {
-            this.throwWeapon();
+            this.combat.throwWeapon();
           } else if (this.app.input.isPressed("KeyL", "ShiftLeft", "ShiftRight")) {
             if (this.playerModel.tryRoll()) {
               this.particles.dust(this.playerModel.x, this.playerModel.y, 4);
               sfx.swing();
             }
           } else if (this.app.input.isPressed("KeyU")) {
-            this.trySuper();
+            this.combat.trySuper();
           }
         }
 
@@ -1315,7 +783,7 @@ export class GameplayScene extends Scene {
           // Trigger gunner shot
           if (e.triggerShoot) {
             e.triggerShoot = false;
-            this.fireBullet(e, e.facing);
+            this.combat.fireBullet(e, e.facing);
           }
 
           e.update(dt);
@@ -1330,7 +798,7 @@ export class GameplayScene extends Scene {
         }
 
         // Apply physical 2.5D body separation
-        this.resolveBodyCollisions();
+        this.combat.resolveBodyCollisions();
 
         // Atmosphere & feedback driven by fighter physics
         const lampProps = this.bg?.propsList?.filter((p) => p.type === "lamp") || [];
@@ -1361,17 +829,17 @@ export class GameplayScene extends Scene {
         }
 
         if (this.game.mode === "playing") {
-          this.resolveHits();
+          this.combat.resolveHits();
         }
 
-        this.updateBullets(dt);
-        this.updateThrows(dt);
+        this.combat.updateBullets(dt);
+        this.combat.updateThrows(dt);
         this.particles.update(dt);
 
         if (this.game.comboTimer > 0) this.game.comboTimer -= dt;
         else this.game.combo = 0;
 
-        this.updatePickups(dt);
+        this.combat.updatePickups(dt);
         this.updateEffects(dt);
         this.updatePopups(dt);
 
@@ -1400,17 +868,16 @@ export class GameplayScene extends Scene {
           if (view) view.updateView(dt, b);
         }
 
+        for (const th of this.throws) {
+          const view = this.throwViews.get(th);
+          if (!view) continue;
+          view.position.set(th.x, th.ry);
+          view.icon.rotation = th.spin;
+        }
+
         // 6. Clean up dead entities
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-          const e = this.enemies[i];
-          if (e.removed) {
-            const view = this.enemyViews.get(e);
-            if (view) {
-              view.destroy({ children: true, texture: false });
-              this.enemyViews.delete(e);
-            }
-            this.enemies.splice(i, 1);
-          }
+        for (const e of this.enemies.filter((enemy) => enemy.removed)) {
+          this.despawn("enemy", e);
         }
 
         // Check if wave cleared
