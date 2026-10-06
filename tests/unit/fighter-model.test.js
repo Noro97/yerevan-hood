@@ -64,3 +64,11 @@ test("knockdown launches the target", () => {
   assert.equal(e.state, "down");
   assert.ok(e.vz > 0 && e.z > 0);
 });
+
+test("AI attacks from where its punch would actually land", () => {
+  const player = fighter({ x: 300, y: 470, isPlayer: true, scale: 1.08 });
+  const e = fighter({ x: 300 + 34, y: 470 });
+  e.aiTimer = 999;
+  e.updateAI(1, player, [e]);
+  assert.equal(e.state, "attack");
+});

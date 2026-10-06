@@ -95,3 +95,73 @@ test("body collisions push overlapping fighters apart symmetrically", () => {
   assert.ok(world.enemies[0].x - world.playerModel.x > 5);
   assert.ok(Math.abs(world.playerModel.x + world.enemies[0].x - before) < 1e-9);
 });
+
+test("ground attacks juggle a knocked-down target near the top of its arc", () => {
+  rng.seed(2);
+  const { world, combat } = makeWorld({ enemies: [{ x: 330 }] });
+  const e = world.enemies[0];
+  e.applyHit(1, 1, 0, true);
+  for (let i = 0; i < 7; i++) e.update(1);
+  assert.ok(e.z > 15, `target is high in the air (z=${e.z})`);
+  strike(world.playerModel);
+  combat.resolveHits();
+  assert.equal(e.hp, 100 - 1 - ATTACKS.punch.dmg);
+});
+
+test("a jumping (not knocked-down) target still dodges ground attacks", () => {
+  const { world, combat } = makeWorld({ enemies: [{ x: 330 }] });
+  const e = world.enemies[0];
+  e.jump();
+  for (let i = 0; i < 6; i++) e.update(1);
+  strike(world.playerModel);
+  combat.resolveHits();
+  assert.equal(e.hp, 100);
+});
+
+test("one swing hits every enemy in reach and wears a weapon once", () => {
+  rng.seed(4);
+  const { world, combat } = makeWorld({
+    player: { weapon: { kind: "stick", def: WEAPONS.stick, uses: 5 } },
+    enemies: [{ x: 335, facing: -1 }, { x: 345, y: 476, facing: -1 }],
+  });
+  strike(world.playerModel);
+  combat.resolveHits();
+  assert.deepEqual(world.enemies.map((e) => e.hp), [100 - WEAPONS.stick.dmg, 100 - WEAPONS.stick.dmg]);
+  assert.equal(world.playerModel.weapon.uses, 4);
+  assert.equal(world.game.combo, 2);
+});
+
+test("a blocked hit builds no combo, score or super", () => {
+  rng.seed(3);
+  const { world, combat } = makeWorld({ enemies: [{ x: 330, facing: -1, archetype: "shielder" }] });
+  strike(world.playerModel, "kick");
+  combat.resolveHits();
+  assert.equal(world.game.combo, 0);
+  assert.equal(world.game.score, 0);
+  assert.equal(world.game.super, 0);
+});
+
+test("shooting and throwing use a recoil pose: no lunge, no punch chain", () => {
+  const { world, combat } = makeWorld({ player: { weapon: { kind: "stick", def: WEAPONS.stick, uses: 5 } } });
+  const p = world.playerModel;
+  const x0 = p.x;
+  combat.throwWeapon();
+  assert.equal(p.state, "recoil");
+  while (p.state === "recoil") p.update(1);
+  assert.equal(p.x, x0);
+  assert.ok(p.chainWindow <= 0);
+
+  combat.fireBullet(p, 1);
+  assert.equal(world.bullets[0].dmg, WEAPONS.pistol.dmg);
+});
+
+test("kill() kills even an invulnerable, grounded fighter", () => {
+  const { world } = makeWorld({ enemies: [{ x: 400 }] });
+  const e = world.enemies[0];
+  e.applyHit(1, 1, 0, true);
+  e.z = 0;
+  e.invul = 50;
+  e.kill();
+  assert.equal(e.alive, false);
+  assert.equal(e.hp, 0);
+});

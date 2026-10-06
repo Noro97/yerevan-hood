@@ -92,9 +92,8 @@ export class InspectorPanel {
     if (action === "heal") f.hp = f.maxHp;
     if (action === "knockdown") f.applyHit(0, -f.facing, 4, true);
     if (action === "kill" && f.alive) {
-      f.invul = 0;
-      if (f.state === "down" || f.state === "rise" || f.state === "roll") f.state = "idle";
-      if (f.applyHit(f.hp + 1, -f.facing, 6, true) && !f.isPlayer) scene.combat.onKill(f);
+      f.kill();
+      if (!f.isPlayer) scene.combat.onKill(f);
     }
     if (action === "ai") f.dummy = !f.dummy;
     if (action === "remove" && !f.isPlayer) {

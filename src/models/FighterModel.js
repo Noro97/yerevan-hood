@@ -1,5 +1,8 @@
 import { rng } from "../core/Random.js";
-import { GRAVITY, JUMP_VEL, ATTACKS, AIR_KICK, CHAR_SCALE, FLOOR_TOP, FLOOR_BOTTOM } from "../core/Constants.js";
+import { GRAVITY, JUMP_VEL, CHAR_SCALE, FLOOR_TOP, FLOOR_BOTTOM, WORLD_W } from "../core/Constants.js";
+import { ATTACKS, AIR_KICK, AI, COMBAT_DEPTH_BAND, HIT, RECOIL } from "../data/combat.js";
+
+const DEFAULT_BOUNDS = { top: FLOOR_TOP, bottom: FLOOR_BOTTOM, left: 40, right: WORLD_W - 40 };
 
 let nextId = 1;
 
@@ -21,10 +24,12 @@ export class FighterModel {
     this.power = power;
     this.facing = isPlayer ? 1 : -1;
 
-    this.state = "idle"; // idle | walk | attack | hurt | roll | down | rise | dead
+    this.state = "idle"; // idle | walk | attack | recoil | hurt | roll | down | rise | dead
     this.t = Math.floor(x % 60); // Desync animation loops
     this.attackKind = null;
     this.attackTimer = 0;
+    this.recoilKind = null;
+    this.recoilTimer = 0;
     this.hitDone = false;
     this.airKick = false;
     this.cooldown = 0;
@@ -139,6 +144,24 @@ export class FighterModel {
     return true;
   }
 
+  /** Shooting / throwing pose: no lunge, no hit, doesn't feed the punch chain. */
+  startRecoil(kind) {
+    this.state = "recoil";
+    this.recoilKind = kind;
+    this.recoilTimer = RECOIL[kind];
+    this.attackKind = null;
+    this.hitDone = true;
+  }
+
+  /** Immediate death regardless of invulnerability or knockdown (studio, kill-all). */
+  kill() {
+    this.hp = 0;
+    this.state = "dead";
+    this.deadTimer = 0;
+    this.vz = Math.max(this.vz, 3);
+    this.z = Math.max(this.z, 0.01);
+  }
+
   tryAirKick() {
     if (this.z <= 0 || this.airKick) return false;
     this.airKick = true;
@@ -220,66 +243,71 @@ export class FighterModel {
     return false;
   }
 
-  updateAI(dt, playerModel, otherEnemies) {
+  /** Reach at which this fighter's punch would land on `target` (mirrors CombatSystem.resolveHits). */
+  punchReach(target) {
+    return ATTACKS.punch.range * this.scaleF + target.hurtbox.rx * HIT.reachAhead;
+  }
+
+  updateAI(dt, playerModel, otherEnemies, bounds = DEFAULT_BOUNDS) {
     if (!this.alive || !playerModel || !playerModel.alive) return;
     if (this.dummy || this.archetype === "dummy") {
       this.setMove(0, 0);
       return;
     }
-    if (this.state === "attack" || this.state === "hurt" || this.state === "down" || this.state === "rise") return;
+    if (this.state === "attack" || this.state === "recoil" || this.state === "hurt" || this.state === "down" || this.state === "rise") return;
 
     this.aiTimer -= dt;
     if (this.aiTimer <= 0) {
-      this.aiTimer = 18 + rng.next() * 22;
+      this.aiTimer = AI.retargetMin + rng.next() * AI.retargetRange;
       this.aiSide = this.x >= playerModel.x ? 1 : -1;
-      if (!this.gunner && rng.next() < 0.18) this.aiSide *= -1;
-      this.aiOffY = (rng.next() - 0.5) * 12 * this.scaleF;
+      if (!this.gunner && rng.next() < AI.flipSideChance) this.aiSide *= -1;
+      this.aiOffY = (rng.next() - 0.5) * AI.laneJitter * this.scaleF;
     }
 
-    const standoff = this.gunner ? 215 : (this.boss ? 42 : 36) * this.scaleF;
-    const tx = Math.max(40, Math.min(2880 - 40, playerModel.x + this.aiSide * standoff));
-    const ty = Math.max(FLOOR_TOP, Math.min(FLOOR_BOTTOM, playerModel.y + (this.gunner ? 0 : this.aiOffY)));
+    const pdx = playerModel.x - this.x;
+    const laneDiff = Math.abs(playerModel.y - this.y);
+    const reach = this.archetype === "rusher" ? AI.rusherReach * this.scaleF : this.punchReach(playerModel);
+    const attackLane = COMBAT_DEPTH_BAND * Math.min(this.scaleF, playerModel.scaleF) * AI.attackLaneFactor;
+    // Close enough to swing: stop drifting off the player's lane so the swing can land.
+    const engaged = !this.gunner && Math.abs(pdx) < reach;
+
+    const standoff = this.gunner ? AI.gunnerStandoff : (this.boss ? AI.bossStandoff : AI.standoff) * this.scaleF;
+    const tx = Math.max(bounds.left, Math.min(bounds.right, playerModel.x + this.aiSide * standoff));
+    const ty = Math.max(bounds.top, Math.min(bounds.bottom, playerModel.y + (this.gunner || engaged ? 0 : this.aiOffY)));
     const dx = tx - this.x, dy = ty - this.y;
 
     let mx = 0, my = 0;
-    if (Math.abs(dx) > 6) mx = Math.sign(dx);
-    if (Math.abs(dy) > 5) my = Math.sign(dy);
+    if (Math.abs(dx) > AI.deadzoneX) mx = Math.sign(dx);
+    if (Math.abs(dy) > AI.deadzoneY) my = Math.sign(dy);
 
-    // Apply crowding separation
     for (const o of otherEnemies) {
       if (o === this || !o.alive) continue;
       const sx = this.x - o.x, sy = this.y - o.y;
-      if (Math.abs(sx) < 34 && Math.abs(sy) < 16) {
-        mx += Math.sign(sx || 1) * 0.6;
-        my += Math.sign(sy || 1) * 0.6;
+      if (Math.abs(sx) < AI.separationX && Math.abs(sy) < AI.separationY) {
+        mx += Math.sign(sx || 1) * AI.separationPush;
+        my += Math.sign(sy || 1) * AI.separationPush;
       }
     }
     this.setMove(Math.max(-1, Math.min(1, mx)), Math.max(-1, Math.min(1, my)));
 
-    const pdx = playerModel.x - this.x;
-    const laneDiff = Math.abs(playerModel.y - this.y);
     if (this.gunner) {
       this.shootCd -= dt;
-      if (this.shootCd <= 0 && laneDiff < 14 * this.scaleF && Math.abs(pdx) > 80) {
+      if (this.shootCd <= 0 && laneDiff < AI.shootLane * this.scaleF && Math.abs(pdx) > AI.shootMinDistance) {
         this.facing = Math.sign(pdx) || this.facing;
-        this.triggerShoot = true; // Flag for controller to spawn bullet
-        this.shootCd = 140 + rng.next() * 60;
-      } else if (Math.abs(pdx) < 38 * this.scaleF && laneDiff < 12 * this.scaleF && this.cooldown <= 0) {
-        // Close range whip
+        this.triggerShoot = true; // the scene spawns the bullet
+        this.shootCd = AI.shootCooldownMin + rng.next() * AI.shootCooldownRange;
+      } else if (Math.abs(pdx) < this.punchReach(playerModel) && laneDiff < attackLane && this.cooldown <= 0) {
+        // close-range pistol whip
         this.facing = Math.sign(pdx) || this.facing;
         this.tryAttack("punch");
       }
-    } else {
-      // rushers start their lunging punch from slightly further out
-      const reach = this.archetype === "rusher" ? 75 * this.scaleF : 42 * this.scaleF;
-      if (Math.abs(pdx) < reach && laneDiff < 12 * this.scaleF && this.cooldown <= 0) {
-        this.facing = Math.sign(pdx) || this.facing;
-        const kind =
-          this.archetype === "grappler" ? "kick"
-          : this.archetype === "rusher" ? "punch"
-          : rng.next() < 0.65 ? "punch" : "kick";
-        this.tryAttack(kind);
-      }
+    } else if (Math.abs(pdx) < reach && laneDiff < attackLane && this.cooldown <= 0) {
+      this.facing = Math.sign(pdx) || this.facing;
+      const kind =
+        this.archetype === "grappler" ? "kick"
+        : this.archetype === "rusher" ? "punch"
+        : rng.next() < AI.punchChance ? "punch" : "kick";
+      this.tryAttack(kind);
     }
   }
 
@@ -353,11 +381,21 @@ export class FighterModel {
         }
         if (this.attackTimer >= a.dur) {
           this.state = "idle";
-          this.cooldown = this.isPlayer ? 5 : (this.aiCool || 55) + rng.next() * 45;
+          this.cooldown = this.isPlayer ? 5 : (this.aiCool || AI.cooldownBase) + rng.next() * AI.cooldownRange;
           // open the chain window so the next J continues the string
           if (this.isPlayer && (this.attackKind === "punch" || this.attackKind === "hook")) {
             this.chainWindow = 24;
           }
+        }
+        break;
+      }
+      case "recoil": {
+        this.vx *= Math.pow(0.8, dt);
+        this.vy *= Math.pow(0.8, dt);
+        this.recoilTimer -= dt;
+        if (this.recoilTimer <= 0) {
+          this.state = "idle";
+          this.cooldown = this.isPlayer ? RECOIL.playerCooldown : RECOIL.enemyCooldown;
         }
         break;
       }

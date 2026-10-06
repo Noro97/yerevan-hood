@@ -260,12 +260,11 @@ export const SCENARIOS = [
     },
   },
 
-  // ---------- known bugs: intended behaviour, fixed in phase 3 / 4 ----------
+  // ---------- phase 3 fixes (regressions) + known bugs ----------
   {
-    id: "bug.juggle",
-    group: "Known bugs",
+    id: "melee.juggle",
+    group: "Melee",
     title: "Juggle: a punch connects with a knocked-down enemy near the top of its arc",
-    knownBug: "ground attacks ignore targets above 18×scale, so juggles only land in a ~4 px window",
     frames: 30,
     setup(s) {
       const d = s.dummy(335);
@@ -281,10 +280,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.multi-target",
-    group: "Known bugs",
+    id: "melee.multi-target",
+    group: "Melee",
     title: "One swing hits every enemy in reach",
-    knownBug: "resolveHits stops after the first target",
     frames: 25,
     setup(s) {
       s.dummy(330);
@@ -296,10 +294,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.ai-stall",
-    group: "Known bugs",
+    id: "ai.engage",
+    group: "AI",
     title: "An adjacent, ready enemy attacks within 40 frames",
-    knownBug: "AI stops up to 9 px off the 8.4 px attack lane and idles next to the player",
     frames: 900,
     seed: 11,
     setup(s) {
@@ -321,10 +318,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.shoot-lunge",
-    group: "Known bugs",
+    id: "weapon.shoot-recoil",
+    group: "Weapons",
     title: "Firing a pistol doesn't move the shooter",
-    knownBug: "fireBullet reuses the punch state, so the shooter lunges forward",
     frames: 30,
     setup(s) {
       s.give("pistol");
@@ -336,10 +332,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.block-combo",
-    group: "Known bugs",
+    id: "block.no-combo",
+    group: "Blocking",
     title: "A blocked hit doesn't build combo or score",
-    knownBug: "blocked melee hits still add combo, score and super",
     frames: 35,
     setup: (s) => s.spawn({ archetype: "shielder", x: 335 }, { dummy: true, facing: -1 }),
     input: [{ at: 0, press: ["KeyK"] }],
@@ -349,10 +344,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.super-popup",
-    group: "Known bugs",
+    id: "super.rage-popup",
+    group: "Super",
     title: "The super's damage popup shows the damage actually dealt",
-    knownBug: "popup always reads -38, even under rage (×2)",
     frames: 10,
     setup(s) {
       s.scene.game.super = SUPER.max;
@@ -368,10 +362,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.bounds-push",
-    group: "Known bugs",
+    id: "bounds.wall-push",
+    group: "Bounds",
     title: "Body collisions can't push the player through the left wall",
-    knownBug: "resolveBodyCollisions runs after the bounds clamp",
     frames: 30,
     setup(s) {
       s.setPlayer({ x: 30 });
@@ -386,10 +379,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.kill-all",
-    group: "Known bugs",
+    id: "flow.kill-all",
+    group: "Flow",
     title: "Kill-all leaves no 'alive' enemy at 0 HP",
-    knownBug: "applyHit ignores non-vulnerable targets, onKill runs anyway",
     frames: 10,
     setup(s) {
       const e = s.spawn({ x: 420 });
@@ -419,10 +411,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.loot-floor",
-    group: "Known bugs",
+    id: "bounds.loot-floor",
+    group: "Bounds",
     title: "Loot respects custom floor bounds",
-    knownBug: "spawnPickup clamps to the FLOOR_TOP/FLOOR_BOTTOM constants",
     frames: 2,
     setup(s) {
       s.scene.setFloorBounds(420, 500);
@@ -433,10 +424,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.punch-reach",
-    group: "Known bugs",
+    id: "melee.punch-reach",
+    group: "Melee",
     title: "The fist's visual reach matches the punch's hit reach",
-    knownBug: "the straight-arm rig reaches ~14 px past the hit range",
     frames: 12,
     input: [{ at: 0, press: ["KeyJ"] }],
     onFrame(s) {
@@ -448,6 +438,63 @@ export const SCENARIOS = [
     },
     check(t, s) {
       t.near(s.memo.visual ?? 0, meleeReach("punch"), 6, "fist tip vs hit reach (px)");
+    },
+  },
+  {
+    id: "weapon.throw-recoil",
+    group: "Weapons",
+    title: "Throwing a weapon doesn't move the thrower or start a punch chain",
+    frames: 30,
+    setup(s) {
+      s.give("stick");
+      s.memo.x0 = s.player.x;
+    },
+    input: [{ at: 0, press: ["KeyE"] }],
+    check(t, s) {
+      t.near(s.player.x, s.memo.x0, 0.5, "player x unchanged");
+      t.equal(s.player.chainWindow <= 0, true, "no punch-chain window opened");
+    },
+  },
+  {
+    id: "weapon.wear-once",
+    group: "Weapons",
+    title: "A stick swing that hits two enemies wears the stick once",
+    frames: 25,
+    setup(s) {
+      s.give("stick");
+      s.dummy(340);
+      s.dummy(350, {}, { y: 466 });
+    },
+    input: [{ at: 0, press: ["KeyJ"] }],
+    check(t, s) {
+      t.equal(s.hits({ weapon: "stick" }).length, 2, "both hit");
+      t.equal(s.player.weapon?.uses, WEAPONS.stick.uses - 1, "one use spent");
+    },
+  },
+  {
+    id: "ai.floor-bounds",
+    group: "AI",
+    title: "With custom floor bounds, enemies stay inside and still engage",
+    frames: 400,
+    seed: 4,
+    setup(s) {
+      s.god();
+      s.scene.setFloorBounds(430, 490);
+      s.setPlayer({ y: 432 });
+      s.spawn({ paletteKey: "thug1", hp: 9999, x: 560, y: 485 });
+      s.memo.minY = Infinity;
+      s.memo.maxY = -Infinity;
+    },
+    onFrame(s) {
+      for (const e of s.enemies) {
+        s.memo.minY = Math.min(s.memo.minY, e.y);
+        s.memo.maxY = Math.max(s.memo.maxY, e.y);
+      }
+    },
+    check(t, s) {
+      t.atLeast(s.memo.minY, 430, "never above the top bound");
+      t.atMost(s.memo.maxY, 490, "never below the bottom bound");
+      t.atLeast(s.events("hit").filter((e) => e.target === s.player).length, 1, "the enemy lands at least one hit");
     },
   },
 ];

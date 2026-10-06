@@ -435,8 +435,7 @@ export class GameplayScene extends Scene {
   killAllEnemies() {
     for (const e of [...this.enemies]) {
       if (e.alive) {
-        e.hp = 0;
-        e.applyHit(999, 1, 10, true);
+        e.kill();
         this.combat.onKill(e);
       }
     }
@@ -536,7 +535,7 @@ export class GameplayScene extends Scene {
   spawnPickup(x, y, type, meta = null) {
     // keep loot reachable: clamp into the walkable strip
     x = Math.max(40, Math.min(WORLD_W - 40, x));
-    y = Math.max(FLOOR_TOP, Math.min(FLOOR_BOTTOM, y));
+    y = Math.max(this.floorTop, Math.min(this.floorBottom, y));
     return this.spawnEntity("pickup", new PickupModel({ x, y, type, meta }), new PickupView(type));
   }
 
@@ -799,8 +798,9 @@ export class GameplayScene extends Scene {
         const minEnemyX = Math.max(10, this.game.camX - 35);
         const maxEnemyX = Math.min(WORLD_W - 10, this.game.camX + W + 35);
 
+        const aiBounds = { top: this.floorTop, bottom: this.floorBottom, left: 40, right: WORLD_W - 40 };
         for (const e of this.enemies) {
-          e.updateAI(dt, this.playerModel, this.enemies);
+          e.updateAI(dt, this.playerModel, this.enemies, aiBounds);
           
           // Trigger gunner shot
           if (e.triggerShoot) {
@@ -819,8 +819,9 @@ export class GameplayScene extends Scene {
           e.y = Math.max(this.floorTop, Math.min(this.floorBottom, e.y));
         }
 
-        // Apply physical 2.5D body separation
+        // Apply physical 2.5D body separation, then keep everyone on the street
         this.combat.resolveBodyCollisions();
+        this.clampToStreet(minEnemyX, maxEnemyX);
 
         // Atmosphere & feedback driven by fighter physics
         const lampProps = this.bg?.propsList?.filter((p) => p.type === "lamp") || [];
@@ -923,6 +924,21 @@ export class GameplayScene extends Scene {
       if (!view) continue;
       view.position.set(th.x, th.ry);
       view.icon.rotation = th.spin;
+    }
+  }
+
+  clampToStreet(minEnemyX, maxEnemyX) {
+    const clampY = (f) => {
+      f.y = Math.max(this.floorTop, Math.min(this.floorBottom, f.y));
+    };
+    const p = this.playerModel;
+    if (p) {
+      p.x = Math.max(30, Math.min(WORLD_W - 30, p.x));
+      clampY(p);
+    }
+    for (const e of this.enemies) {
+      e.x = Math.max(minEnemyX, Math.min(maxEnemyX, e.x));
+      clampY(e);
     }
   }
 

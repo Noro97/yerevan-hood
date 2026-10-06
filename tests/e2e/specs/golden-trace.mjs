@@ -7,7 +7,7 @@ import { playAndTrace } from "../bot.mjs";
 const RUNS = [
   { id: "seed1234-from-start", seed: 1234, frames: 7200 },
   { id: "seed77-wave6", seed: 77, wave: 6, hp: 400, frames: 6000 },
-  { id: "seed9-wave9", seed: 9, wave: 9, hp: 600, frames: 7200 },
+  { id: "seed9-wave9", seed: 9, wave: 9, hp: 600, frames: 12000 },
 ];
 
 export const name = "golden traces: seeded bot runs are unchanged (UPDATE_GOLDEN=1 to re-record)";
