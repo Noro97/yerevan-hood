@@ -185,6 +185,16 @@ export class ScenarioRunner {
       view(model) {
         return model.isPlayer ? scene.playerView : scene.enemyViews.get(model);
       },
+      /** World point of a display object's local point (computed now, not from the last render). */
+      worldPoint(displayObject, point = { x: 0, y: 0 }) {
+        return scene.world.toLocal(displayObject.toGlobal(point));
+      },
+      /** Uniform world scale of a display object along its local y axis. */
+      worldScale(displayObject) {
+        const a = this.worldPoint(displayObject, { x: 0, y: 0 });
+        const b = this.worldPoint(displayObject, { x: 0, y: 100 });
+        return Math.hypot(b.x - a.x, b.y - a.y) / 100;
+      },
       worldBounds(displayObject) {
         const b = displayObject.getBounds();
         const tl = scene.world.toLocal({ x: b.minX, y: b.minY });

@@ -1,4 +1,5 @@
 import { ATTACKS, WEAPONS, HIT, SUPER, COMBAT_DEPTH_BAND } from "../data/combat.js";
+import { ITEMS } from "../data/items.js";
 import { STORY } from "../core/Constants.js";
 
 /**
@@ -398,10 +399,9 @@ export const SCENARIOS = [
     },
   },
   {
-    id: "bug.gunner-gun",
-    group: "Known bugs",
+    id: "items.gunner-pistol",
+    group: "Items",
     title: "A gunner visibly holds a pistol",
-    knownBug: "spawnEnemy never gives gunners a weapon sprite",
     frames: 3,
     setup(s) {
       s.memo.gunner = s.scene.spawnEnemy({ paletteKey: "gunner", hp: 50, speed: 1.5, power: 1, scale: 1, gunner: true });
@@ -495,6 +495,94 @@ export const SCENARIOS = [
       t.atLeast(s.memo.minY, 430, "never above the top bound");
       t.atMost(s.memo.maxY, 490, "never below the bottom bound");
       t.atLeast(s.events("hit").filter((e) => e.target === s.player).length, 1, "the enemy lands at least one hit");
+    },
+  },
+  {
+    id: "items.floor-vs-hand",
+    group: "Items",
+    title: "Every weapon is the same size on the floor and in a scale-1 hand",
+    frames: 2,
+    setup(s) {
+      s.memo.pairs = Object.keys(WEAPONS).map((kind, i) => {
+        const holder = s.dummy(420 + i * 90);
+        holder.setWeapon({ kind, def: WEAPONS[kind] });
+        return { kind, holder, floor: s.pickup(kind, 440 + i * 90, 520) };
+      });
+    },
+    check(t, s) {
+      for (const { kind, holder, floor } of s.memo.pairs) {
+        const hand = s.view(holder).weaponSprite;
+        const icon = s.scene.pickupViews.get(floor).icon;
+        const len = (sprite) => sprite.texture.content.length * s.worldScale(sprite);
+        t.near(len(hand) / len(icon), 1, 0.03, `${kind}: hand / floor length`);
+      }
+    },
+  },
+  {
+    id: "items.rest-on-floor",
+    group: "Items",
+    title: "Pickups rest on the street instead of sinking into it",
+    frames: 40,
+    setup(s) {
+      s.memo.items = Object.keys(ITEMS).map((type, i) => s.pickup(type, 380 + i * 40, 500));
+      s.memo.worst = 0;
+    },
+    onFrame(s) {
+      // the icon's anchor is its lowest opaque row
+      for (const p of s.memo.items) {
+        const bottom = s.worldPoint(s.scene.pickupViews.get(p).icon).y;
+        s.memo.worst = Math.max(s.memo.worst, bottom - p.y);
+      }
+    },
+    check(t, s) {
+      t.atMost(s.memo.worst, 0.5, "lowest icon pixel below the ground point (px)");
+    },
+  },
+  {
+    id: "items.stick-tip",
+    group: "Items",
+    title: "At impact a stick's tip is where its hit reaches",
+    frames: 14,
+    setup(s) {
+      s.give("stick");
+    },
+    input: [{ at: 0, press: ["KeyJ"] }],
+    onFrame(s) {
+      const p = s.player;
+      if (p.state === "attack" && p.attackTimer >= 7 && p.attackTimer <= 9) {
+        const w = s.view(p).weaponSprite;
+        const c = w.texture.content;
+        const tip = s.scene.world.toLocal(w.toGlobal({ x: c.centerX - ITEMS.stick.grip[0], y: c.bottom - ITEMS.stick.grip[1] }));
+        s.memo.tip = Math.max(s.memo.tip ?? 0, (tip.x - p.x) * p.facing);
+      }
+    },
+    check(t, s) {
+      const reach = WEAPONS.stick.range * PLAYER_SCALE + DUMMY_RADIUS * HIT.reachAhead;
+      t.near(s.memo.tip ?? 0, reach, 8, "stick tip vs stick hit reach (px)");
+    },
+  },
+  {
+    id: "items.pistol-aim",
+    group: "Items",
+    title: "A pistol is held low at rest and levelled when firing",
+    frames: 8,
+    setup(s) {
+      s.give("pistol");
+      s.memo.dir = {};
+    },
+    input: [{ at: 4, press: ["KeyJ"] }],
+    onFrame(s, f) {
+      const w = s.view(s.player).weaponSprite;
+      const a = s.scene.world.toLocal(w.toGlobal({ x: 0, y: 0 }));
+      const b = s.scene.world.toLocal(w.toGlobal({ x: 0, y: 20 }));
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      s.memo.dir[f] = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+    },
+    check(t, s) {
+      const rest = s.memo.dir[2];
+      const firing = s.memo.dir[6];
+      t.ok(rest.x > 0.4 && rest.y > 0.3, "at rest: barrel points forward and down", JSON.stringify(rest));
+      t.ok(firing.x > 0.9, "firing: barrel points forward", JSON.stringify(firing));
     },
   },
 ];

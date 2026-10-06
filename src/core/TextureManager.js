@@ -56,6 +56,7 @@ class TextureManager {
       tex.defaultAnchor = { x: info.anchorX, y: info.anchorY };
       tex.pad = info.pad ?? 0;
       if (info.sockets) tex.sockets = info.sockets;
+      if (info.content) tex.content = info.content;
       return [key, tex];
     });
 

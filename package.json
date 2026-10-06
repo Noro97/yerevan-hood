@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Yerevan Hood — Kond Street Brawler (PixiJS beat-'em-up)",
+  "description": "Yerevan Hood \u2014 Kond Street Brawler (PixiJS beat-'em-up)",
   "scripts": {
     "serve": "npx -y serve -l 8123 .",
     "lint": "eslint .",
@@ -11,7 +11,8 @@
     "test:e2e": "node tests/e2e/run.mjs",
     "check": "npm run lint && npm test && npm run test:e2e",
     "assets:audit": "node scripts/audit_assets.mjs",
-    "assets:slice": ".venv/bin/python scripts/slice_all_characters.py"
+    "assets:slice": ".venv/bin/python scripts/slice_all_characters.py",
+    "assets:measure": ".venv/bin/python scripts/measure_items.py"
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",

@@ -142,3 +142,7 @@ table.props td { padding: 2px 0; }
 .checks { list-style: none; padding: 0; margin: 8px 0; }
 .checks li { margin: 4px 0; display: grid; grid-template-columns: 14px 1fr; gap: 6px; align-items: baseline; }
 .checks .detail { display: block; color: var(--muted); }
+
+/* item lab */
+table.items th, table.items td { padding: 2px 4px; }
+table.items input.short { width: 58px; }
