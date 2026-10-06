@@ -2,7 +2,7 @@ import { Container, Graphics, ColorMatrixFilter } from "pixi.js";
 import { Scene } from "../core/Scene.js";
 import { ParticleSystem } from "../views/ParticleSystem.js";
 import { W, H, WORLD_W, BASE_SPEED, WEAPONS, STORY, CHAPTERS, chapterOf } from "../core/Constants.js";
-import { sfx } from "../core/SoundManager.js?v=3";
+import { sfx } from "../core/SoundManager.js";
 import { rng } from "../core/Random.js";
 import { GameModel } from "../models/GameModel.js";
 import { FighterModel } from "../models/FighterModel.js";
@@ -41,7 +41,6 @@ export class GameplayScene extends Scene {
     this.frame = 0;
     this.hitstop = 0;
 
-    // Initialize Models
     this.game = new GameModel();
     this.playerModel = null;
     this.enemies = [];
@@ -49,7 +48,6 @@ export class GameplayScene extends Scene {
     this.pickups = [];
     this.bullets = [];
 
-    // Initialize Maps to bind Models to Views
     this.enemyViews = new Map();
     this.crateViews = new Map();
     this.pickupViews = new Map();
@@ -80,11 +78,9 @@ export class GameplayScene extends Scene {
     this.frame = 0;
     this.hitstop = 0;
 
-    // 1. Create Environmental Layers
     this.bg = new BackgroundView();
     this.addChild(this.bg.sky, this.bg.far, this.bg.mid);
 
-    // 2. Create Dynamic World Layers
     this.world = new Container();
     this.actors = new Container();
     this.actors.sortableChildren = true;
@@ -92,17 +88,14 @@ export class GameplayScene extends Scene {
     this.addChild(this.world);
     this.addChild(this.bg.fore); // out-of-focus foreground strip
 
-    // Per-chapter color grade on the world
     this.grade = new ColorMatrixFilter();
     this.world.filters = [this.grade];
 
-    // 3. Chapter mood overlay
     this.moodTint = new Graphics();
     this.moodTint.rect(0, 0, W, H).fill(0xffffff);
     this.moodTint.alpha = 0;
     this.addChild(this.moodTint);
 
-    // 4. Soft vignette frame for depth
     this.vignette = new Graphics();
     this.vignette.rect(0, 0, W, 26).fill({ color: 0x0c0815, alpha: 0.18 });
     this.vignette.rect(0, 26, W, 18).fill({ color: 0x0c0815, alpha: 0.1 });
@@ -112,31 +105,12 @@ export class GameplayScene extends Scene {
     this.vignette.rect(W - 22, 0, 22, H).fill({ color: 0x0c0815, alpha: 0.12 });
     this.addChild(this.vignette);
 
-    // 5. HUD, Dialogue panel, and Overlays
     this.hud = new HUDView();
     this.dialogue = new DialogueView(W, H);
     this.overlay = new OverlayView();
     this.overlay.hide();
 
     this.addChild(this.hud, this.dialogue, this.overlay);
-
-    // Bind debug utilities
-    Object.defineProperty(window, "__game", {
-      configurable: true,
-      get: () => ({
-        player: this.playerModel,
-        enemies: this.enemies,
-        mode: this.game.mode,
-        wave: this.game.wave,
-        score: this.game.score,
-        pickups: this.pickups,
-        bullets: this.bullets,
-        breakables: this.crates,
-        buffs: this.game.buffs,
-        superMeter: this.game.super,
-        scene: this,
-      }),
-    });
 
     this.hud.setMuted(sfx.muted);
     document.addEventListener("visibilitychange", this.onVisibility);
@@ -146,7 +120,6 @@ export class GameplayScene extends Scene {
   }
 
   onExit() {
-    delete window.__game;
     document.removeEventListener("visibilitychange", this.onVisibility);
     super.onExit();
   }
@@ -188,7 +161,6 @@ export class GameplayScene extends Scene {
     this.throws = [];
     this.throwViews.clear();
 
-    // Rebuild environmental props (Ladas, Lamps, Bins)
     this.bg.buildProps(this.actors);
     // Fresh particle pool (old one died with the actors layer)
     this.particles = new ParticleSystem(this.actors);
@@ -601,7 +573,6 @@ export class GameplayScene extends Scene {
     this.world.position.set(W / 2 + ox, 420 + oy);
     this.world.scale.set(zoom);
 
-    // Scroll backgrounds
     this.bg.updateCamera(this.game.camX);
   }
 
@@ -737,7 +708,6 @@ export class GameplayScene extends Scene {
           }
         }
 
-        // 1. Process player controls
         if (this.playerModel && this.playerModel.alive && this.game.mode === "playing") {
           const mx = (this.app.input.isDown("KeyD", "ArrowRight") ? 1 : 0) - (this.app.input.isDown("KeyA", "ArrowLeft") ? 1 : 0);
           const my = (this.app.input.isDown("KeyS", "ArrowDown") ? 1 : 0) - (this.app.input.isDown("KeyW", "ArrowUp") ? 1 : 0);
@@ -773,7 +743,6 @@ export class GameplayScene extends Scene {
           }
         }
 
-        // 2. Sync player buffs
         if (this.playerModel) {
           if (this.game.buffs.speed > 0) this.game.buffs.speed -= dt;
           if (this.game.buffs.rage > 0) this.game.buffs.rage -= dt;
@@ -782,7 +751,6 @@ export class GameplayScene extends Scene {
           this.playerModel.power = this.game.buffs.rage > 0 ? 2 : 1;
         }
 
-        // 3. Spawning
         if (this.game.mode === "playing" && this.game.spawnQueue.length > 0) {
           this.game.spawnTimer -= dt;
           const aliveCount = this.enemies.filter((e) => e.alive).length;
@@ -793,7 +761,6 @@ export class GameplayScene extends Scene {
           }
         }
 
-        // 4. Update models
         if (this.playerModel) {
           this.playerModel.update(dt);
           if (this.playerModel.x <= 30) {
@@ -821,7 +788,6 @@ export class GameplayScene extends Scene {
         for (const e of this.enemies) {
           e.updateAI(dt, this.playerModel, this.enemies, aiBounds);
           
-          // Trigger gunner shot
           if (e.triggerShoot) {
             e.triggerShoot = false;
             this.combat.fireBullet(e, e.facing);
@@ -842,13 +808,11 @@ export class GameplayScene extends Scene {
         this.combat.resolveBodyCollisions();
         this.clampToStreet(minEnemyX, maxEnemyX);
 
-        // Atmosphere & feedback driven by fighter physics
-        const LAMPS = this.bg.propsList.filter((p) => p.type === "lamp").map((p) => p.x);
         const allFighters = this.playerModel ? [this.playerModel, ...this.enemies] : this.enemies;
         for (const f of allFighters) {
           // warm pool of light when standing near a street lamp
           let nearest = 1e9;
-          for (const lx of LAMPS) nearest = Math.min(nearest, Math.abs(f.x - lx));
+          for (const lx of this.bg.lampXs) nearest = Math.min(nearest, Math.abs(f.x - lx));
           f.lampGlow = Math.max(0, 1 - nearest / 150);
           // landing dust (jumps, knockdowns, deaths from height)
           if (f.justLanded > 8) this.particles.dust(f.x, f.y, 6);
@@ -886,17 +850,14 @@ export class GameplayScene extends Scene {
 
         this.syncViews(dt);
 
-        // 6. Clean up dead entities
         for (const e of this.enemies.filter((enemy) => enemy.removed)) {
           this.despawn("enemy", e);
         }
 
-        // Check if wave cleared
         if (!this.studio && this.game.mode === "playing" && this.game.spawnQueue.length === 0 && this.enemies.length === 0 && this.playerModel && this.playerModel.alive) {
           this.onWaveCleared();
         }
 
-        // Check player death
         if (this.playerModel && !this.playerModel.alive && this.game.mode !== "gameover") {
           this.game.deathTimer += dt;
           if (this.game.deathTimer > 70) {

@@ -1,7 +1,7 @@
 import { h } from "../dom.js";
 import { STORY } from "../../core/Constants.js";
 import { WEAPONS } from "../../data/combat.js";
-import { sfx } from "../../core/SoundManager.js?v=3";
+import { sfx } from "../../core/SoundManager.js";
 
 const SOUNDS = ["swing", "hit", "heavyHit", "clang", "gunshot", "crateBreak", "glassBreak", "coin", "pickup", "super", "hurt", "ko", "wave"];
 

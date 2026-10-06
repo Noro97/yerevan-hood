@@ -30,52 +30,37 @@
       letter-spacing: 2px;
       font-size: 14px;
     }
+    #loading.error {
+      max-width: 80vw;
+      color: #ff8a7a;
+      letter-spacing: 0;
+      line-height: 1.5;
+    }
   </style>
   <script type="importmap">
     { "imports": { "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.mjs" } }
   </script>
   <script>
-    window.onerror = function(msg, url, line, col, err) {
+    function showFatal(title, detail) {
+      const div = document.createElement("div");
+      div.style.cssText = "position:fixed;top:10px;left:10px;right:10px;background:rgba(180,20,20,.92);color:#fff;" +
+        "padding:16px;font:13px monospace;z-index:999999;border-radius:8px;white-space:pre-wrap";
+      div.innerText = title + "\n" + detail;
+      document.body.appendChild(div);
+    }
+    window.onerror = function (msg, url, line, col, err) {
       console.error(msg, url, line, col, err);
-      const div = document.createElement("div");
-      div.style.position = "fixed";
-      div.style.top = "10px";
-      div.style.left = "10px";
-      div.style.right = "10px";
-      div.style.background = "rgba(180, 20, 20, 0.92)";
-      div.style.color = "#fff";
-      div.style.padding = "16px";
-      div.style.fontFamily = "monospace";
-      div.style.fontSize = "13px";
-      div.style.zIndex = "999999";
-      div.style.borderRadius = "8px";
-      div.style.whiteSpace = "pre-wrap";
-      div.innerText = "Runtime Error: " + msg + "\nLocation: " + url + ":" + line + ":" + col + (err?.stack ? "\n\nStack:\n" + err.stack : "");
-      document.body.appendChild(div);
+      showFatal("Runtime Error: " + msg, "Location: " + url + ":" + line + ":" + col + (err?.stack ? "\n\nStack:\n" + err.stack : ""));
     };
-    window.addEventListener("unhandledrejection", function(e) {
+    window.addEventListener("unhandledrejection", function (e) {
       console.error("Unhandled Rejection:", e.reason);
-      const div = document.createElement("div");
-      div.style.position = "fixed";
-      div.style.top = "10px";
-      div.style.left = "10px";
-      div.style.right = "10px";
-      div.style.background = "rgba(180, 20, 20, 0.92)";
-      div.style.color = "#fff";
-      div.style.padding = "16px";
-      div.style.fontFamily = "monospace";
-      div.style.fontSize = "13px";
-      div.style.zIndex = "999999";
-      div.style.borderRadius = "8px";
-      div.style.whiteSpace = "pre-wrap";
-      div.innerText = "Startup/Promise Error: " + (e.reason?.stack || e.reason || "Unknown error");
-      document.body.appendChild(div);
+      showFatal("Startup/Promise Error:", e.reason?.stack || e.reason || "Unknown error");
     });
   </script>
 </head>
 <body>
   <div id="loading">LOADING YEREVAN HOOD…</div>
   <div id="game"></div>
-  <script type="module" src="./src/main.js?v=3"></script>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>

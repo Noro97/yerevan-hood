@@ -4,7 +4,7 @@
  * self-contained. Returns a state digest every `sampleEvery` frames.
  */
 export function playAndTrace({ frames, sampleEvery }) {
-  const scene = window.__game.scene;
+  const scene = window.__hood.app.scenes.currentScene;
   const app = scene.app;
   const input = app.input;
   const r = (v) => (typeof v === "number" ? Math.round(v * 1e4) / 1e4 : v);

@@ -64,17 +64,21 @@ export class SoundManager {
     o.stop(a.currentTime + dur + 0.02);
   }
 
+  /** One second of white noise, generated once; each sound plays a random slice of it. */
+  noiseBuffer(a) {
+    if (!this.noiseBuf) {
+      this.noiseBuf = a.createBuffer(1, a.sampleRate, a.sampleRate);
+      const data = this.noiseBuf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }
+    return this.noiseBuf;
+  }
+
   noise(dur, vol = 0.1, freq = 1000) {
     const a = this.ac();
     if (!a) return;
-    const len = Math.floor(a.sampleRate * dur);
-    const buf = a.createBuffer(1, len, a.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
     const src = a.createBufferSource();
-    src.buffer = buf;
+    src.buffer = this.noiseBuffer(a);
     const filt = a.createBiquadFilter();
     filt.type = "bandpass";
     filt.frequency.value = freq;
@@ -82,7 +86,7 @@ export class SoundManager {
     g.gain.setValueAtTime(vol, a.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
     src.connect(filt).connect(g).connect(this.master);
-    src.start();
+    src.start(a.currentTime, Math.random() * Math.max(0, 1 - dur), dur);
   }
 
   swing() {

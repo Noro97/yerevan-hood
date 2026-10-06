@@ -31,6 +31,7 @@ export class BackgroundView {
 
     this.buildings = [];
     this.propsList = [];
+    this.lampXs = [];
     this.actorsRef = null;
     this.camX = 0;
 
@@ -75,6 +76,12 @@ export class BackgroundView {
       this.placeProp(prop);
       return prop;
     });
+    this.updateLamps();
+  }
+
+  /** Lamp positions for the fighters' warm lamp glow; refreshed whenever props move. */
+  updateLamps() {
+    this.lampXs = this.propsList.filter((p) => p.type === "lamp").map((p) => p.x);
   }
 
   placeProp(prop) {
@@ -83,6 +90,7 @@ export class BackgroundView {
     sprite.position.set(cfg.x, cfg.y);
     sprite.scale.set(cfg.scale);
     sprite.zIndex = cfg.y;
+    this.updateLamps();
   }
 
   /** Re-reads everything from the level data (studio Level tab). */

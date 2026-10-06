@@ -1,5 +1,5 @@
 import { Container, Graphics, Sprite, Text } from "pixi.js";
-import { ARM_FONT, PALETTES, CHAR_SCALE } from "../core/Constants.js";
+import { ARM_FONT, PALETTES, CHAR_SCALE, BASE_SPEED } from "../core/Constants.js";
 import { ATTACKS, RECOIL, WEAPONS, HIT } from "../data/combat.js";
 import { ITEMS, handLength } from "../data/items.js";
 import { textureManager } from "../core/TextureManager.js";
@@ -32,13 +32,11 @@ export class FighterView extends Container {
 
     const charTex = textureManager.textures.characters[paletteKey] || textureManager.textures.characters.thug1;
 
-    // Shadow as sprite
     this.shadow = createSprite(textureManager.textures.shadow);
     this.shadow.anchor.set(0.5, 0.5);
     this.shadow.scale.set(this.scaleF);
     this.addChild(this.shadow);
 
-    // Body node (rotates and scales for facing)
     this.body = new Container();
     this.body.scale.set(this.scaleF);
     this.addChild(this.body);
@@ -59,7 +57,6 @@ export class FighterView extends Container {
     this.body.addChild(...this.tintables, this.weaponSprite);
     this.layoutRig(charTex);
 
-    // Enemy HUD (health bar and name tag)
     this.hpBar = null;
     if (!isPlayer) {
       this.hpBar = new Container();
@@ -187,7 +184,9 @@ export class FighterView extends Container {
   }
 
   redrawEnemyHp(hp, maxHp) {
-    if (!this.hpFg) return;
+    if (!this.hpFg || (hp === this.drawnHp && maxHp === this.drawnMaxHp)) return;
+    this.drawnHp = hp;
+    this.drawnMaxHp = maxHp;
     const r = Math.max(hp, 0) / maxHp;
     this.hpFg.clear();
     if (r > 0) {
@@ -211,26 +210,22 @@ export class FighterView extends Container {
   }
 
   updateView(dt, model) {
-    // Sync transforms
     this.x = model.x;
     this.y = model.y;
     this.zIndex = model.y;
 
-    // Facing direction and scale
     this.body.scale.x = model.facing * this.scaleF;
     this.body.scale.y = this.scaleF;
 
-    // Height offset
     this.body.y = -model.z;
 
-    // Shadow scaling
     const sh = Math.max(0.45, 1 - model.z / 140);
     this.shadow.scale.set(sh * this.scaleF);
     this.shadow.alpha = 0.35 * sh + 0.1;
 
     // Tint pipeline: impact flash > enrage pulse > buffs > lamp glow
     let baseTint = model.isPlayer
-      ? (model.power > 1 ? 0xffc36b : (model.speed > 2.7 ? 0xc8e8ff : 0xffffff))
+      ? (model.power > 1 ? 0xffc36b : (model.speed > BASE_SPEED ? 0xc8e8ff : 0xffffff))
       : 0xffffff;
     if (model.enraged) {
       baseTint = Math.sin(model.t * 0.2) > 0 ? 0xff9a8a : 0xffd0c0;
@@ -244,24 +239,20 @@ export class FighterView extends Container {
       sprite.tint = tint;
     }
 
-    // Landing squash-and-stretch
     if (model.justLanded > 0) {
       const sq = model.justLanded / 9;
       this.body.scale.y = this.scaleF * (1 - 0.16 * sq);
       this.body.scale.x = model.facing * this.scaleF * (1 + 0.12 * sq);
     }
 
-    // Mercy-frame blink
     this.body.alpha = model.invul > 0 && Math.floor(model.t / 3) % 2 === 0 ? 0.5 : 1;
 
-    // Sync weapon
     const weaponKind = model.weapon ? model.weapon.kind : null;
     if (this.currentWeaponKind !== weaponKind) {
       this.currentWeaponKind = weaponKind;
       this.setWeaponGraphic(model.weapon);
     }
 
-    // Sync enemy health bar
     if (this.hpBar) {
       const showBar = !model.boss && model.vulnerable && model.hp < model.maxHp;
       this.hpBar.visible = showBar;

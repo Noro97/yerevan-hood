@@ -36,13 +36,13 @@ export async function openGame(browser, baseUrl, { seed = 1234 } = {}) {
   await page.goto(`${baseUrl}/?test`, { waitUntil: "load" });
   await page.waitForFunction(() => !document.getElementById("loading"), { timeout: 30000 });
   await page.keyboard.press("KeyQ");
-  await page.waitForFunction(() => window.__game?.scene?.app, { timeout: 10000 });
+  await page.waitForFunction(() => window.__hood?.app.scenes.currentScene?.combat, { timeout: 10000 });
   await page.evaluate(async (s) => {
     const [{ rng }, { GameplayScene }] = await Promise.all([
       import("/src/core/Random.js"),
       import("/src/scenes/GameplayScene.js"),
     ]);
-    const app = window.__game.scene.app;
+    const app = window.__hood.app;
     app.paused = true;
     rng.seed(s);
     app.scenes.switchScene(new GameplayScene());

@@ -20,11 +20,10 @@ The game uses ES modules, so it needs a local web server (opening `index.html` v
 
 ```sh
 cd yerevan-hood
-npx serve .
-# or: python3 -m http.server 8080
+npm run serve        # or: npx serve .  /  python3 -m http.server 8080
 ```
 
-Then open the printed localhost URL.
+Then open the printed localhost URL. For the testing studio see [Development & testing](#development--testing).
 
 ## Controls
 
@@ -38,14 +37,16 @@ Then open the printed localhost URL.
 | E | **Throw** the held weapon (bottles shatter and floor the target) |
 | L or Shift | **Dodge roll** — brief invulnerability |
 | U | **ԿԱՅԾԱԿ super** — whirlwind that floors everyone nearby (needs a full meter) |
-| J / Space / Enter | Advance dialogue |
+| Esc | Pause / resume (also pauses when you switch tabs) |
+| M | Sound on / off |
+| J / Space / Enter | Advance dialogue — hold to skip it |
 | R / Enter | Restart · Enter at victory = endless mode |
 
 Items are picked up by walking over them. Landing hits charges the gold super meter.
 
 ### Enemy archetypes
 
-- **Rushers** (purple) sprint in with long lunging punches — roll through them.
+- **Rushers** (maroon shirt and apron) sprint in with long lunging punches — roll through them.
 - **Grapplers** (big, green) are slow but their grab always slams you down — and knocks your weapon loose.
 - **Shielders** (blue, trash-can lid) block frontal hits down to scraps — flank them, floor them, or juggle them.
 - **Gunners** (red) keep range and shoot; jump the bullets.
@@ -86,10 +87,12 @@ Inspired by the genre classics — Streets of Rage's disposable weapons and food
 | Stick (փայտ) | Melee weapon, 8 swings, long range |
 | Bottle (շիշ) | Melee weapon, 4 swings, breaks |
 | Makarov pistol | 6 rounds, 24 dmg per shot |
+| Trash-can lid (կափարիչ) | Melee weapon that **blocks** frontal hits and bullets |
+| Grandpa's medal | +500 score — the story's prize (wave 9) |
 
 - **Wooden crates** litter the street — smash them (fists, weapons, or bullets) for random loot.
 - **Gunners** (red jackets) appear from wave 4: they keep their distance and shoot. Dodge vertically, close the gap — they drop their pistol when beaten.
-- Chain hits for combos; +25 HP between waves; bosses always drop loot.
+- Chain hits for combos (blocked hits don't count); +35 HP between waves, +50 HP and +10 max HP after a boss; bosses always drop loot.
 
 ## Development & testing
 

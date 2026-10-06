@@ -9,20 +9,17 @@ export class DialogueView extends Container {
 
     const panelW = W - 120, panelH = 118;
 
-    // Panel background
     this.panel = new Graphics();
     this.panel.roundRect(60, H - panelH - 18, panelW, panelH, 10).fill({ color: 0x140e20, alpha: 0.92 });
     this.panel.roundRect(60, H - panelH - 18, panelW, panelH, 10).stroke({ width: 2, color: 0xd4af37 });
     this.addChild(this.panel);
 
-    // Speaker portrait slot using cached Sprite
     this.portraitSlot = new Container();
     this.portraitSlot.position.set(76, H - panelH - 18 + 22);
     this.portraitSprite = new Sprite();
     this.portraitSlot.addChild(this.portraitSprite);
     this.addChild(this.portraitSlot);
 
-    // Speaker name
     this.nameText = new Text({
       text: "",
       style: { fontFamily: ARM_FONT, fontSize: 15, fill: 0xffd98a, fontWeight: "900", letterSpacing: 1 },
@@ -30,7 +27,6 @@ export class DialogueView extends Container {
     this.nameText.position.set(166, H - panelH - 18 + 14);
     this.addChild(this.nameText);
 
-    // Typed dialogue text body
     this.bodyText = new Text({
       text: "",
       style: {
@@ -46,7 +42,6 @@ export class DialogueView extends Container {
     this.bodyText.position.set(166, H - panelH - 18 + 40);
     this.addChild(this.bodyText);
 
-    // Skip/advance hint arrow
     this.hint = new Text({
       text: "J / ENTER ▸   սեղմած պահիր՝ բաց թողնել",
       style: { fontFamily: ARM_FONT, fontSize: 13, fill: 0xc9a0ff, fontWeight: "700" },
@@ -92,7 +87,7 @@ export class DialogueView extends Container {
     if (!line) return;
 
     if (this.chars < line.text.length) {
-      this.chars = line.text.length; // Fast-forward typewriter
+      this.chars = line.text.length;
       return;
     }
 

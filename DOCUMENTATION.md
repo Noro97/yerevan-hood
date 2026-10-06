@@ -2,13 +2,16 @@
 
 A 2D side-scrolling beat-'em-up (with a light shooter layer) set in the **Kond**
 neighborhood of Yerevan. Built with **PixiJS v8** (loaded from CDN via import map),
-pure ES modules, no build step. All graphics are drawn procedurally with the Pixi
-`Graphics` API; all sound is synthesized at runtime with the WebAudio API. There are
-**no image or audio asset files**.
+plain ES modules, no build step. Characters, props and backgrounds are PNG textures
+listed in `assets/textures/manifest.json`; all sound is synthesized at runtime with
+the WebAudio API.
 
 - **Live (GitHub Pages):** https://noro97.github.io/yerevan-hood/
 - **Live (Vercel):** https://yerevan-hood.vercel.app
-- **Source:** ~3,600 lines of JavaScript across 22 modules.
+
+Exact numbers (damage, ranges, chances, AI timings, movement) live in
+`src/data/combat.js` and are shown live in the studio's Balance tab — this document
+describes the rules and points there rather than repeating values that change.
 
 ---
 
@@ -17,7 +20,7 @@ pure ES modules, no build step. All graphics are drawn procedurally with the Pix
 Sev Vacho's crew crossed the gorge into Kond and robbed the neighborhood:
 **grandpa's war medal**, **Tatik's pension**, and little **Armo's bike**. You play
 **Davo**, who goes out for a "conversation." The campaign is **3 chapters / 9 waves**,
-told through dialogue cutscenes with hand-drawn vector portraits:
+told through dialogue cutscenes with character portraits:
 
 | Chapter | Name | Waves | Boss (wave) |
 |---|---|---|---|
@@ -35,18 +38,20 @@ Each chapter shifts the lighting mood (dusk → night → dawn).
 | Key | Action |
 |---|---|
 | ← → ↑ ↓ / WASD | Move (8-directional, momentum-based) |
-| J / Z | Punch · swing melee weapon · **fire pistol** |
+| J / Z | Punch · swing a melee weapon · **fire the pistol** |
 | K / X | Kick (slower, stronger, can knock down) |
 | Space | **Jump** (jump over bullets) |
 | J or K while airborne | **Flying kick** (always knocks down) |
 | E | **Throw** the held weapon |
-| L / Shift | **Dodge roll** (i-frames, cooldown 42f) |
-| U | **ԿԱՅԾԱԿ super** (full meter: AOE 38 dmg + knockdown, radius 270) |
-| J / Space / Enter | Advance dialogue |
-| R / Enter | Restart · (Enter on victory → Endless mode) |
+| L / Shift | **Dodge roll** (brief invulnerability, short cooldown) |
+| U | **ԿԱՅԾԱԿ super** — whirlwind around Davo (needs a full meter) |
+| Esc | Pause / resume (the game also pauses when the tab is hidden) |
+| M | Sound on / off (remembered) |
+| J / Space / Enter | Advance dialogue — **hold** to skip the whole conversation |
+| R / Enter | Restart after game over · Enter on victory → Endless mode |
 
-**Combo string:** J·J·J chains punch → punch → **hook** (15 dmg, 60% knockdown) when
-each press lands within the 24-frame chain window after the previous swing.
+**Combo string:** J·J·J chains punch → punch → **hook** when each press lands inside
+the chain window that opens after the previous swing.
 
 Items are picked up by walking over them.
 
@@ -55,188 +60,199 @@ Items are picked up by walking over them.
 ## 3. Game Systems
 
 ### 3.1 Combat & hit resolution
-`GameplayScene.resolveHits()` runs every frame. For each attacker in an active
-attack/air-kick window it queries `FighterModel.getActiveHit()` (range, damage,
-knockback, kind, weapon) and tests targets in front, within range, and within the
-depth band (`|Δy| ≤ 30`). On a hit it applies damage, spawns a floating damage
-number, a spark, hit-stop (2.5–4 frames), and screen shake.
+`CombatSystem.resolveHits()` runs every frame. For every fighter in an attack's
+active frames (or a flying kick) it asks `FighterModel.getActiveHit()` for range,
+damage, knockback and kind, then hits **every** target in reach — in front, within the
+attack's range plus the target's body radius, and inside the melee depth lane. A
+weapon loses one use per swing however many enemies it hits.
 
-**Knockdown rules** (probabilistic): player kicks 35%, stick hits 50%, flying kicks
-100%; enemy kicks 18%, boss attacks 50%. Bosses resist being floored (~60%). A
-knocked-down fighter is launched, lands flat, and has **wake-up invulnerability**.
+- **Height:** ground attacks pass under jumping targets; a **knocked-down** enemy
+  can be juggled by ground attacks while airborne (up to near the top of its arc).
+- **Knockdowns** are rolled per hit (player kicks, hooks and stick hits; enemy kicks;
+  boss attacks; grapplers always slam). Bosses often resist being floored.
+- **Blocks:** shielders, and the player holding a trash-can lid, block frontal melee
+  hits and bullets — chip damage only, no knockdown, a steel-blue flash and a grey
+  `-N ԿԼԱՆԿ!` popup. A block feeds no combo, score or super meter.
+- **Feedback:** sparks, impact puffs, hit-stop, screen shake and pooled floating
+  damage numbers that stack instead of overlapping.
 
 ### 3.2 Health & damage
-- HP bar with a trailing **"ghost" damage bar** (drains slowly behind real HP) and a
-  low-HP heartbeat pulse below 30%.
-- **Mercy invulnerability frames** for the player: ~35 frames after being hit, ~30
-  after rising — prevents gang stun-locks. `FighterModel.vulnerable` gates all damage.
-- **Bosses** show a large named health bar at the top of the screen instead of the
-  small overhead one.
-- **Max-HP growth:** beating a chapter boss permanently grants **+10 max HP**
-  (River City Ransom-style). Non-boss waves heal +35; boss waves heal +50.
+- HP bar with a trailing **ghost bar** (drains slowly behind real HP) and a low-HP
+  pulse.
+- **Mercy invulnerability** after being hit and after getting up — prevents gang
+  stun-locks. `FighterModel.vulnerable` gates all damage.
+- **Bosses** show a large named health bar at the top of the screen and **enrage at
+  half HP** (faster, harder hitting, red pulse).
+- Between waves the player heals **+35 HP**; after a boss wave **+50 HP and +10 max
+  HP** (River City Ransom-style growth).
 
 ### 3.3 Weapons (pickup, swing, throw, drop)
-Defined in `Constants.WEAPONS`:
+Defined in `WEAPONS` (`src/data/combat.js`); sizes in hand and on the floor come from
+one table in `src/data/items.js`.
 
-| Weapon | Melee dmg / range | Uses | Throw dmg | Notes |
-|---|---|---|---|---|
-| Stick (ՓԱՅՏ) | 16 / 90 | 8 | 16 | long reach |
-| Bottle (ՇԻՇ) | 13 / 72 | 4 | 20 | **shatters** on throw → knockdown |
-| Makarov (ՄԱԿԱՐՈՎ) | — | 6 ammo | 10 | ranged, fires bullets |
+| Weapon | Use | Notes |
+|---|---|---|
+| Stick (ՓԱՅՏ) | melee, limited swings | longest melee reach, extra depth lane, often floors |
+| Bottle (ՇԻՇ) | melee, few swings | thrown, it always **shatters** and floors the target |
+| Makarov (ՄԱԿԱՐՈՎ) | 6 rounds | J fires a bullet; held at the low ready, levelled when firing |
+| Trash-can lid (ԿԱՓԱԿ) | melee, limited uses | **blocks** frontal hits and bullets; each block costs a use |
 
-- **E throws** the held weapon (`throwWeapon`/`updateThrows`). Bottles shatter for 20
-  dmg + guaranteed knockdown; sticks/pistols land as pickups preserving remaining
-  uses/ammo (carried in `PickupModel.meta`).
-- Getting **knocked down drops** your weapon on the pavement.
-- Beaten gunners drop their pistol with only their leftover rounds.
+- **E throws** the held weapon. Bottles shatter; other weapons land as pickups that
+  keep their remaining uses / ammo.
+- Shooting and throwing use a short **recoil** pose — no lunge, no punch chain.
+- Getting knocked down **drops** your weapon. Gunners carry a visible pistol and drop
+  it on death with 3–6 rounds.
 
 ### 3.4 Pickups & loot
-`PickupView` draws nine detailed items. `applyPickup` effects:
 
 | Item | Effect |
 |---|---|
 | Shawarma | +30 HP |
 | Khorovats skewer | Full heal |
-| Tan (yogurt drink) | Speed buff ×1.5 for ~10 s |
+| Tan (yogurt drink) | Speed ×1.5 for ~10 s |
 | Ararat cognac | RAGE — damage ×2 for ~8 s |
 | Coin | +75 score |
 | Medal | +500 score (story reward, wave 9) |
-| Stick / Bottle / Pistol | Equip weapon |
+| Stick / Bottle / Pistol / Lid | Equip the weapon |
 
-Loot comes from a weighted table (`lootRoll`) via crate breaks, enemy kills (drop
-chance scales `0.28 + wave·0.02`, capped 0.45), and guaranteed boss drops.
-**Crates** (`CrateModel`, 2 HP) are smashed by melee, thrown weapons, or bullets.
+Loot comes from a weighted table (`LOOT_TABLE`) via crate breaks and enemy kills
+(drop chance grows with the wave, capped); bosses always drop. **Crates** break after
+two punches, or one bullet or thrown weapon.
 
 ### 3.5 Waves & difficulty
-`fillSpawnQueue(n)` builds each wave; spawns trickle in with **max 4 enemies alive**
-at once.
+`GameplayScene.fillSpawnQueue(n)` builds each wave; enemies trickle in with at most
+4 alive at once (5 from wave 7).
 
-- Thug count: `min(2 + ceil(n·0.7), 8)` (bosses waves spawn 3 + the boss).
-- Thug HP `26 + n·6`, power `0.5 + n·0.045`, attack cooldown `max(45, 85 − n·4)`.
-- **Gunners** appear from wave 4 (`min(2, 1 + floor((n−4)/4))`): keep their distance
-  (standoff ~215px) and shoot; pistol-whip when cornered.
-- **Archetypes** mix in as waves climb: **rushers** (wave 2+, fast, 3.2× lunge),
-  **grapplers** (wave 3+, 1.5× HP, their kick always slams — and knocks the player's
-  weapon loose), **shielders** (wave 5+, trash-lid block reduces frontal damage to
-  25%, bypassed from behind / by knockdowns / by the super).
-- **Bosses** (waves 3/6/9) have hand-tuned HP/power/scale and **enrage at 50% HP**
-  (+0.45 speed, ×1.3 power, red pulse). Endless past wave 9 spawns a scaling generic
-  boss every 3rd wave. Boss KOs trigger a camera **zoom punch**.
-- **Air juggles:** a launched (airborne-down) enemy can be re-hit while `z > 8`,
-  relaunching them; grounded knockdowns keep wake-up invulnerability.
-- **Super meter:** +5/+7 per landed punch/kick, +6 per bullet or thrown-weapon hit.
+- Thug count `min(2 + ceil(n·0.7), 8)` (boss waves: 3 + the boss); HP, power and
+  attack rate grow with the wave.
+- **Archetypes** mix in as waves climb: **rushers** (wave 2+, fast lunging punch),
+  **grapplers** (wave 3+, tanky, every hit floors you), **shielders** (wave 5+, lid
+  blocks frontal hits — flank, floor or juggle them), **gunners** (wave 4+, keep
+  their distance and shoot; pistol-whip when cornered).
+- **Bosses** on waves 3 / 6 / 9; endless mode spawns a scaling boss every 3rd wave.
+  Boss KOs trigger a camera **zoom punch**.
+- **Enemy AI** walks to a standoff point beside the player and attacks once its punch
+  would actually land (it uses the real hit reach and lane).
 
-### 3.6 Scoring & combos
-Punch +10, kick +15, bullet/throw +20; kills +100 + wave·20 (+300 for bosses); coins
-+75; medal +500. Combo counter increments per landed hit and decays after ~110 frames;
-HUD shows `×N COMBO!` at ≥2.
+### 3.6 Scoring, combos & super
+Points for punches, kicks and ranged hits; kills give a base plus a per-wave bonus
+(more for bosses); coins and the medal add score. The combo counter grows with every
+landed (not blocked) hit and resets after a short window; the HUD shows `×N COMBO!`
+from 2. Landed hits also charge the **ԿԱՅԾԱԿ** meter; the super hits everything
+within its radius around Davo for heavy damage and knockdown.
 
 ### 3.7 Physics
 A lightweight 2.5D model on `FighterModel`:
-- **8-direction movement** with velocity easing (`vx,vy` lerp toward intent) and
-  diagonal normalization (×0.72). `BASE_SPEED = 2.7`.
-- **Z-axis** (`z, vz`) for jumps and launches with gravity (`GRAVITY = 0.5`,
-  `JUMP_VEL = 8`). Shadows shrink and lighten with height; bullets pass under airborne
-  fighters (`z > 22`).
-- **Knockback** (`kbX`) with exponential friction.
-- The walkable depth band is `y ∈ [398, 524]`; the world is `2880 px` wide on a
-  `960×540` stage.
+- **8-direction movement** with velocity easing and diagonal normalization.
+- **Z-axis** (`z, vz`) for jumps and launches under gravity; shadows shrink with
+  height; bullets pass under jumping fighters.
+- **Knockback** (`kbX`) with exponential friction; body collisions push overlapping
+  fighters apart, then everyone is clamped back onto the street.
+- The walkable strip is `level.floor` in `src/data/level.js`; the world is 2880 px wide
+  on a 960×540 stage.
 
 ### 3.8 Rendering pipeline & VFX
-- The static street scenery (hundreds of Graphics/Texts) is **baked once into a
-  RenderTexture** (`BackgroundView.bake`) — one sprite per frame instead of
-  re-tessellating ~3,000 draw commands.
-- **Pooled particle system** (`ParticleSystem`, cap 240): ground dust (running,
-  landings, knockdowns), wood debris (crates), glass shards (bottles), gold KO
-  bursts, impact puffs.
-- **Per-chapter color grade** via `ColorMatrixFilter` on the world (dusk +sat,
-  night −sat/−bright, dawn +sat/+bright) layered with the mood tint.
-- **Lamp glow:** fighters within ~150px of a street lamp get a warm tint
-  (`model.lampGlow`); hit flashes snap white for 2 frames before turning red.
-- **Foreground parallax strip** (bollards, planters, a hydrant) slides at 1.25×
-  camera speed; landing **squash-and-stretch**; somersault roll and whirlwind
-  super override poses in `FighterView`.
+- **Characters** are a modular sprite rig (head, torso, arms, legs) cut from the source
+  sheets in `art/characters/src` by `scripts/slice_all_characters.py`: background
+  flood-fill matte, uniform scaling, 4× resolution, and attachment sockets (neck,
+  shoulders, hips) measured from the art and stored in the manifest. `FighterView`
+  places the parts from those sockets, pivots falls at the hips, and foreshortens the
+  punching arm so the fist's visible reach matches the hit reach.
+- **Street**: sky / far / mid layers scroll with parallax, street / fences / buildings /
+  cables scroll with the world, props are y-sorted with the fighters — all laid out by
+  `src/data/level.js`. A faint out-of-focus foreground strip slides in front.
+- **Pooled particle system** (dust, wood debris, glass shards, KO bursts, impact
+  puffs) and pooled popups.
+- **Per-chapter color grade** (`ColorMatrixFilter`) plus mood tint; a warm glow on
+  fighters near street lamps; landing squash-and-stretch; roll and super spin poses.
 
 ### 3.9 Audio
-`SoundManager` (singleton `sfx`) synthesizes everything with oscillators + filtered
-noise: `swing, hit, hurt, ko, pickup, wave`. The AudioContext is unlocked on first
-key press.
+`SoundManager` (singleton `sfx`) synthesizes every sound with oscillators and a
+cached filtered-noise buffer: swing, hit, heavy hit, clang, gunshot, crate / glass
+break, coin, pickup, super, hurt, KO, wave. Everything goes through one master gain
+node (mute with M, volume in the studio). The AudioContext unlocks on the first key
+press.
 
 ---
 
-## 4. Architecture (MVC)
+## 4. Architecture
 
 ```
-index.html                 # import map (pixi.js → CDN) + #game mount + boot
-src/main.js                # entry: new GameApp().init() → start(TitleScene)
-src/core/
-  GameApp.js               # Pixi Application, ticker loop, InputManager, SceneManager
-  SceneManager.js          # switchScene(): onExit old → addChild → onEnter new
-  Scene.js                 # base: onEnter / onExit / update(dt)
-  InputManager.js          # keydown/up sets, isDown / isPressed, onAnyKeyPress hook
-  SoundManager.js          # WebAudio synth (singleton `sfx`)
-  Constants.js             # all tunables: dims, ATTACKS, WEAPONS, PALETTES, STORY…
-src/models/                # pure logic/state, no Pixi
-  GameModel.js             # mode, wave, score, combo, buffs, camX, shake, timers
-  FighterModel.js          # physics + state machine + AI + combat queries
-  BulletModel.js  CrateModel.js  PickupModel.js
-src/views/                 # Pixi rendering, driven by models
-  BackgroundView.js        # sky / mountains / skyline / street / buildings / props
-  FighterView.js           # limb rig, animation states, weapon, hp bar, blink
-  HUDView.js               # HP+ghost bar, boss bar, weapon, buffs, combo, banner
-  DialogueView.js          # portrait + typewriter dialogue panel
-  OverlayView.js           # title / game-over / victory cards
-  PickupView.js  CrateView.js  BulletView.js
-src/scenes/
-  TitleScene.js            # title screen → GameplayScene on any key
-  GameplayScene.js         # the controller: owns models, spawns, combat, waves, HUD
+index.html / studio.html   # import map (pixi.js → CDN) + mount points
+src/main.js                # game entry: GameApp.init() → TitleScene
+src/core/                  # GameApp (ticker, fixed step, step(n)), SceneManager, Scene,
+                           # InputManager, SoundManager, TextureManager, Random (seeded), Constants
+src/data/                  # combat.js (tuning defaults + live API), items.js (size table),
+                           # level.js (street layout), tuning/*.js (studio-saved overrides)
+src/models/                # pure state + logic, no Pixi: GameModel, FighterModel (physics,
+                           # state machine, AI), BulletModel, CrateModel, PickupModel
+src/systems/CombatSystem.js  # hits, blocks, knockdowns, bullets, throws, super, kills, loot
+src/views/                 # Pixi rendering driven by models: BackgroundView, FighterView,
+                           # PickupView, CrateView, BulletView, HUDView, DialogueView,
+                           # OverlayView, PopupLayer, ParticleSystem
+src/scenes/                # TitleScene, GameplayScene (the controller: waves, spawns, input,
+                           # camera, pause/mute, wiring models ↔ views ↔ CombatSystem)
+src/studio/                # testing studio (see README)
+scripts/                   # asset pipeline, asset audit, studio server
+tests/                     # unit (Node) and e2e (headless Chrome) suites
 ```
+
+`CombatSystem` has no Pixi dependency: it mutates models, asks the scene to spawn /
+despawn entities, and reports cosmetic effects through an `fx` sink and structured
+events through a `listener` (the studio's combat log and scenario checks use them).
+Gameplay randomness goes through the seeded `rng`, so a seed plus inputs replays a run
+exactly; cosmetic randomness (sparks, shake, particles, audio) uses `Math.random`.
 
 ### 4.1 Game loop
-`GameApp` runs one Pixi ticker: clamp `dt ≤ 2.5`, `sceneManager.update(dt)`, then
-`input.update()` (clears the just-pressed set). The active scene's `update(dt)` drives
-everything.
+`GameApp` runs one Pixi ticker: clamp `dt ≤ 2.5` (or exactly 1 with `fixedStep`),
+`sceneManager.update(dt)`, then clear the just-pressed keys. `app.step(n)` runs frames
+synchronously for tests and the studio.
 
 ### 4.2 Update order (GameplayScene, per frame)
-1. Mode handling (title/dialogue/banner/playing/gameover/victory).
-2. Read player input → intent on `playerModel`.
-3. Apply buffs (speed/rage) and tick their timers.
-4. Trickle-spawn from the queue (respecting the alive cap).
-5. `playerModel.update` + clamp to bounds; each enemy `updateAI` → `update` → clamp.
-6. `resolveHits`, `updateBullets`, `updateThrows`.
-7. Combo decay; `updatePickups`, `updateEffects`, `updatePopups`.
-8. **Sync views** from models (`view.updateView(dt, model)`).
-9. Remove dead entities; check wave-cleared / player-death.
-10. `updateCamera` (follow + shake + parallax), HUD update, overlay update.
+1. Pause / mute keys; dialogue (advance or hold-to-skip); game-over / victory keys.
+2. Player input → movement intent, attacks, jump, roll, throw, shoot, super.
+3. Buff timers; trickle-spawn from the wave queue.
+4. Player and enemy updates (AI → physics), bounds, body collisions, re-clamp.
+5. Lamp glow, landing dust, boss enrage.
+6. `combat.resolveHits()`, `updateBullets`, `updateThrows`; particles; combo decay;
+   `updatePickups`; effects and popups.
+7. `syncViews()` — every view reads its model.
+8. Remove dead enemies; wave cleared / player death checks.
+9. Camera (follow, shake, zoom punch, parallax), HUD, overlay.
 
 ### 4.3 State machine (FighterModel.state)
-`idle → walk → attack → hurt → down → rise → dead`. Models hold all logic;
-`FighterView` reads `state`/timers/`z` to pose the limb rig — **rendering never
-mutates game state**.
+`idle / walk → attack | recoil (shoot, throw) | roll → hurt → down → rise → dead`.
+Models hold all logic; `FighterView` reads state, timers and `z` to pose the rig —
+rendering never mutates game state.
 
 ### 4.4 Mode flow (GameModel.mode)
-`title → dialogue → banner → playing → (gameover | victory)`, with `dialogue` and
-`banner` interludes re-entered between waves and around bosses.
+`title → dialogue → banner → playing → (gameover | victory)`, with dialogue and banner
+interludes between waves and around bosses. Pause is a separate flag on the scene.
 
 ---
 
-## 5. Key tunables (Constants.js)
-`W/H = 960/540`, `WORLD_W = 2880`, `FLOOR_TOP/BOTTOM = 398/524`, `FINAL_WAVE = 9`,
-`BASE_SPEED = 2.7`, `GRAVITY = 0.5`, `JUMP_VEL = 8`.
-`ATTACKS.punch` (dmg 9, range 62), `ATTACKS.kick` (dmg 14, range 80),
-`AIR_KICK` (dmg 17, range 68). Palettes, faces, story script, and chapter titles all
-live here too — most balance and content changes are single-file edits.
+## 5. Data files
+
+| File | What it holds |
+|---|---|
+| `src/data/combat.js` | documented defaults: attacks, weapons, lanes, hit / knockdown / block rules, super, bullets, throws, loot, AI, movement |
+| `src/data/tuning/balance.js` | studio-saved changes to those defaults (only changed values) |
+| `src/data/items.js` · `tuning/items.js` | item size table (real metres × readability) and its saved changes |
+| `src/data/level.js` | street layout: floor, layers, buildings, props |
+| `src/core/Constants.js` | stage and world size, palettes, faces, story script, chapter titles |
+| `assets/textures/manifest.json` | every texture: file, anchor, resolution, rig sockets, item measurements |
 
 ---
 
 ## 6. Running locally
 ES modules need a server (not `file://`); PixiJS needs internet (CDN).
 ```sh
-cd yerevan-hood
-npx serve .            # or: python3 -m http.server 8080
+npm install
+npm run studio     # game + studio on http://127.0.0.1:8124 (studio can save data files)
+npm run serve      # plain static server on :8123
+npm run check      # lint + unit + headless browser tests
 ```
-Debug handles exposed on `window`: `__app` (Pixi app) and, during gameplay, `__game`
-(player, enemies, mode, wave, score, pickups, bullets, breakables, buffs).
+See README → "Development & testing" for the studio and the test suites.
 
 ---
 
@@ -245,3 +261,5 @@ Debug handles exposed on `window`: `__app` (Pixi app) and, during gameplay, `__g
   on every push to `main`.
 - **Vercel:** zero-config static deploy via the CLI; redeploy with
   `vercel --prod --scope noro97s-projects`. (Not yet wired to git auto-deploy.)
+- Both deploy the repository as-is, so `studio.html` is reachable too; it only changes
+  state in the visitor's own tab (saving needs the local studio server).

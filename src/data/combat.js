@@ -173,9 +173,6 @@ export const AI = {
   cooldownRange: 45,
 };
 
-// ---------------------------------------------------------------------------------------------
-// Live tuning (studio Balance tab)
-
 const TABLES = { ATTACKS, AIR_KICK, WEAPONS, HIT, KNOCKDOWN, SCORE, SUPER, BULLET, THROW, LOOT_TABLE, DROPS, PICKUP_EFFECTS, RECOIL, AI };
 
 const SCALARS = {

@@ -17,7 +17,7 @@ export async function run({ browser, baseUrl }) {
   for (const cfg of RUNS) {
     const { page, errors } = await openGame(browser, baseUrl, { seed: cfg.seed });
     await page.evaluate(({ wave, hp }) => {
-      const scene = window.__game.scene;
+      const scene = window.__hood.app.scenes.currentScene;
       if (hp) scene.playerModel.hp = scene.playerModel.maxHp = hp;
       if (wave) {
         scene.dialogue.visible = false;
