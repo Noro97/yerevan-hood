@@ -3,3 +3,7 @@
 node_modules/
 *.log
 .vercel
+.archive/
+scratch/
+.venv/
+assets/textures_reference_sheet.png

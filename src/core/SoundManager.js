@@ -66,6 +66,104 @@ export class SoundManager {
     this.noise(0.05, 0.14, 700);
   }
 
+  heavyHit() {
+    this.blip(130, 35, 0.18, "sawtooth", 0.28);
+    this.noise(0.12, 0.22, 450);
+  }
+
+  clang() {
+    const a = this.ac();
+    if (!a) return;
+    const now = a.currentTime;
+
+    // Dual ringing metallic tones
+    for (const freq of [840, 1420]) {
+      const osc = a.createOscillator();
+      const gain = a.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.92, now + 0.22);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+      osc.connect(gain).connect(a.destination);
+      osc.start(now);
+      osc.stop(now + 0.24);
+    }
+    // High-frequency metallic scrape transient
+    this.noise(0.06, 0.15, 3200);
+  }
+
+  gunshot() {
+    const a = this.ac();
+    if (!a) return;
+    const now = a.currentTime;
+
+    // Sub kick punch
+    const osc = a.createOscillator();
+    const gain = a.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(170, now);
+    osc.frequency.exponentialRampToValueAtTime(30, now + 0.24);
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+    osc.connect(gain).connect(a.destination);
+    osc.start(now);
+    osc.stop(now + 0.26);
+
+    // Explosive crackle noise
+    this.noise(0.18, 0.28, 1800);
+  }
+
+  crateBreak() {
+    this.blip(140, 45, 0.16, "triangle", 0.2);
+    this.noise(0.14, 0.24, 600);
+    this.noise(0.08, 0.16, 1200);
+  }
+
+  glassBreak() {
+    const a = this.ac();
+    if (!a) return;
+    const now = a.currentTime;
+    for (const freq of [2200, 3400, 4100]) {
+      const osc = a.createOscillator();
+      const gain = a.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + 0.18);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.connect(gain).connect(a.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    }
+    this.noise(0.12, 0.18, 3800);
+  }
+
+  coin() {
+    const a = this.ac();
+    if (!a) return;
+    const now = a.currentTime;
+    // B5 (987Hz) then E6 (1318Hz) arcade chime
+    const tones = [{ f: 987, t: 0, d: 0.09 }, { f: 1318, t: 0.08, d: 0.24 }];
+    for (const tone of tones) {
+      const osc = a.createOscillator();
+      const gain = a.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(tone.f, now + tone.t);
+      gain.gain.setValueAtTime(0.18, now + tone.t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.t + tone.d);
+      osc.connect(gain).connect(a.destination);
+      osc.start(now + tone.t);
+      osc.stop(now + tone.t + tone.d + 0.02);
+    }
+  }
+
+  super() {
+    this.blip(120, 480, 0.35, "sawtooth", 0.25);
+    this.blip(300, 60, 0.45, "triangle", 0.3);
+    this.noise(0.35, 0.25, 800);
+  }
+
   hurt() {
     this.blip(170, 70, 0.16, "sawtooth", 0.14);
   }

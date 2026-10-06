@@ -2,12 +2,16 @@ import { Application } from "pixi.js";
 import { W, H } from "./Constants.js";
 import { InputManager } from "./InputManager.js";
 import { SceneManager } from "./SceneManager.js";
+import { textureManager } from "./TextureManager.js";
 
 export class GameApp {
   constructor() {
     this.pixiApp = new Application();
     this.input = null;
     this.scenes = null;
+    this.timeScale = 1.0;
+    this.paused = false;
+    this.stepFrame = false;
   }
 
   async init() {
@@ -18,6 +22,9 @@ export class GameApp {
       background: "#241a38",
       antialias: true,
     });
+
+    // Bake all textures once on startup
+    await textureManager.init(this.pixiApp.renderer);
 
     // Remove the HTML loading placeholder and append the canvas
     document.getElementById("loading")?.remove();
@@ -30,10 +37,26 @@ export class GameApp {
 
     // Set up the main ticker loop
     this.pixiApp.ticker.add((tk) => {
-      const dt = Math.min(tk.deltaTime, 2.5);
+      let dt = Math.min(tk.deltaTime, 2.5);
+
+      if (this.paused) {
+        if (this.stepFramesCount > 0) {
+          this.stepFramesCount--;
+          dt = 1.0;
+        } else if (this.stepFrame) {
+          this.stepFrame = false;
+          dt = 1.0;
+        } else {
+          dt = 0;
+        }
+      } else {
+        dt *= this.timeScale;
+      }
       
       // Update scene (controller)
-      this.scenes.update(dt);
+      if (dt > 0) {
+        this.scenes.update(dt);
+      }
       
       // Clear input buffers at the end of the frame
       this.input.update();
