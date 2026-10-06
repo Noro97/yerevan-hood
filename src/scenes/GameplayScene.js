@@ -1,7 +1,7 @@
 import { Container, Graphics, Text, ColorMatrixFilter } from "pixi.js";
 import { Scene } from "../core/Scene.js";
 import { ParticleSystem } from "../views/ParticleSystem.js";
-import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, ARM_FONT, WEAPONS, STORY, CHAPTERS, chapterOf, CHAR_SCALE, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND, SCALE_CONFIG } from "../core/Constants.js";
+import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, ARM_FONT, WEAPONS, STORY, CHAPTERS, chapterOf, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND } from "../core/Constants.js";
 import { sfx } from "../core/SoundManager.js?v=3";
 import { GameModel } from "../models/GameModel.js";
 import { FighterModel } from "../models/FighterModel.js";
