@@ -239,7 +239,7 @@ export class FighterView extends Container {
       const r = 0xff, gr = Math.round(0xff - 0x26 * k), b = Math.round(0xff - 0x60 * k);
       baseTint = (r << 16) | (gr << 8) | b;
     }
-    const tint = model.flash > 6 ? 0xffffff : model.flash > 0 ? 0xff5b5b : baseTint;
+    const tint = model.blockFlash > 0 ? 0x9fc0e0 : model.flash > 6 ? 0xffffff : model.flash > 0 ? 0xff5b5b : baseTint;
     for (const sprite of this.tintables) {
       sprite.tint = tint;
     }

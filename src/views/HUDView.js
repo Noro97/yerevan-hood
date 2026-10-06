@@ -57,6 +57,11 @@ export class HUDView extends Container {
     this.hudWave.anchor.set(1, 0);
     this.hudWave.position.set(W - 18, 40);
 
+    this.hudMuted = makeText("ՁԱՅՆԸ ԱՆՋԱՏՎԱԾ · M", 11, 0xbbaecc, "400");
+    this.hudMuted.anchor.set(1, 0);
+    this.hudMuted.position.set(W - 18, 60);
+    this.hudMuted.visible = false;
+
     // Combo streak
     this.hudCombo = makeText("", 26, 0xffb347, "900");
     this.hudCombo.anchor.set(0.5);
@@ -64,7 +69,7 @@ export class HUDView extends Container {
     this.hudCombo.visible = false;
 
     // Bottom controller guide
-    this.hudHint = makeText("←→↑↓/WASD · J հարված (J·J·J կոմբո) · K ոտք · SPACE թռիչք · E նետիր · L/Shift գլորվիր · U ԿԱՅԾԱԿ", 11, 0xbbaecc, "400");
+    this.hudHint = makeText("←→↑↓/WASD · J/Z հարված (J·J·J) · K/X ոտք · SPACE թռիչք · E նետիր · L/Shift գլորվիր · U ԿԱՅԾԱԿ · Esc դադար · M ձայն", 11, 0xbbaecc, "400");
     this.hudHint.anchor.set(0.5, 1);
     this.hudHint.position.set(W / 2, H - 8);
 
@@ -105,6 +110,7 @@ export class HUDView extends Container {
       this.hudBuffs,
       this.hudScore,
       this.hudWave,
+      this.hudMuted,
       this.hudCombo,
       this.hudHint,
       this.banner,
@@ -155,7 +161,9 @@ export class HUDView extends Container {
 
     // 3. Sync Weapon readout
     const w = playerModel?.weapon;
-    this.hudWeapon.text = w ? `${w.def.label} ×${w.def.melee ? w.uses : w.ammo} · E՝ նետիր` : "";
+    this.hudWeapon.text = !w ? ""
+      : w.def.melee ? `${w.def.label} ×${w.uses} · E՝ նետիր`
+        : `${w.def.label} ×${w.ammo} · J՝ կրակիր · E՝ նետիր`;
 
     // 3.5 Super meter: fills gold, flashes when ready
     this.superFg.clear();
@@ -196,6 +204,10 @@ export class HUDView extends Container {
       this.banner.visible = false;
       this.bannerSub.visible = false;
     }
+  }
+
+  setMuted(muted) {
+    this.hudMuted.visible = muted;
   }
 
   showBannerText(title, subTitle, isBoss = false) {

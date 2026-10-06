@@ -28,7 +28,7 @@ export class TransportBar {
         h("label", { class: "check", title: "Player HP stays full" }, god, "God mode")),
       this.modeEl,
       this.statsEl,
-      h("span", { class: "hint" }, "click a fighter to inspect · P play · N step · Esc deselect"));
+      h("span", { class: "hint" }, "click a fighter to inspect (empty spot deselects) · P play · N step · Esc pauses the game"));
   }
 
   refresh() {

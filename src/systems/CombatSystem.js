@@ -162,8 +162,9 @@ export class CombatSystem {
             const killed = t.applyHit(dmg, bulletDir, blocked ? BULLET.blockedKnockback : BULLET.knockback);
             this.emit({ type: blocked ? "block" : "hit", source: "bullet", fromPlayer: b.fromPlayer, target: t, dmg, z, killed });
             if (blocked) {
+              this.markBlocked(t);
               this.fx.spark(b.x, b.ry, false, 0xb9c2cc);
-              this.fx.popup(t.x, t.y - 75 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
+              this.fx.popup(t.x, t.y - 75 * t.scaleF, `-${dmg} ԿԼԱՆԿ!`, 0xb9c2cc, 13);
               this.fx.sound("clang");
             } else {
               this.fx.spark(b.x, b.ry, false);
@@ -450,8 +451,9 @@ export class CombatSystem {
     const hitX = (atk.x + t.x) / 2;
     const hitY = t.y - 42 * t.scaleF;
     if (blocked) {
+      this.markBlocked(t);
       this.fx.spark(hitX, hitY, false, 0xb9c2cc);
-      this.fx.popup(t.x, t.y - 75 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
+      this.fx.popup(t.x, t.y - 75 * t.scaleF, `-${dmg} ԿԼԱՆԿ!`, 0xb9c2cc, 13);
       this.fx.sound("clang");
       this.world.hitstop = HIT.hitstopBlocked;
     } else {
@@ -484,6 +486,12 @@ export class CombatSystem {
     } else if (killed) {
       this.game.shake = 12;
     }
+  }
+
+  /** A block reads differently from a hit: steel flash instead of the red/white damage flash. */
+  markBlocked(t) {
+    t.flash = 0;
+    t.blockFlash = 8;
   }
 
   /** One use per swing, however many targets it hit. */

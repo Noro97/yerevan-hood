@@ -10,6 +10,7 @@ import { ViewPanel } from "./panels/ViewPanel.js";
 import { CombatLog } from "./panels/CombatLog.js";
 import { ResultPanel } from "./panels/ResultPanel.js";
 import { ItemLabPanel } from "./panels/ItemLabPanel.js";
+import { ScreensPanel } from "./panels/ScreensPanel.js";
 
 const FREE_PLAY = {
   id: "free",
@@ -67,12 +68,14 @@ export class Studio {
     this.log = new CombatLog(this);
     this.resultPanel = new ResultPanel(this);
     this.itemLab = new ItemLabPanel(this);
+    this.screens = new ScreensPanel(this);
 
     const tabs = [
       ["Scenarios", this.scenarioPanel],
       ["Inspect", this.inspector],
       ["Spawn", this.spawn],
       ["Items", this.itemLab],
+      ["Screens", this.screens],
       ["View", this.view],
     ];
     const tabButtons = tabs.map(([name], i) =>
@@ -124,7 +127,6 @@ export class Studio {
       if (e.target.matches?.("input, select, textarea")) return;
       if (e.code === "KeyP") this.setPlaying(!this.playing);
       else if (e.code === "KeyN") this.stepFrames(e.shiftKey ? 10 : 1);
-      else if (e.code === "Escape") this.select(null);
     });
   }
 
@@ -149,11 +151,18 @@ export class Studio {
     this.watching = null;
     this.current = sc;
     this.runner.prepare(sc);
-    this.scene.updateCamera(0);
-    this.scene.syncViews(0);
+    this.redraw();
     this.select(this.scene.enemies[0] ?? this.scene.playerModel);
     this.emit("reset", sc);
     this.transport.refresh();
+  }
+
+  /** Refreshes views, camera and HUD without simulating a frame (paused previews). */
+  redraw() {
+    const s = this.scene;
+    s.updateCamera(0);
+    s.syncViews(0);
+    s.hud.updateView(s.game, s.playerModel, s.enemies.find((e) => e.boss && e.alive));
   }
 
   freePlay() {

@@ -48,12 +48,18 @@ export class DialogueView extends Container {
 
     // Skip/advance hint arrow
     this.hint = new Text({
-      text: "J ▸",
+      text: "J / ENTER ▸   սեղմած պահիր՝ բաց թողնել",
       style: { fontFamily: ARM_FONT, fontSize: 13, fill: 0xc9a0ff, fontWeight: "700" },
     });
     this.hint.anchor.set(1, 1);
     this.hint.position.set(60 + panelW - 12, H - 28);
     this.addChild(this.hint);
+
+    // fills while an advance key is held; the dialogue skips when it's full
+    this.skipBar = new Graphics();
+    this.skipBar.position.set(60 + panelW - 12, H - 24);
+    this.addChild(this.skipBar);
+    this.skipWidth = 150;
 
     this.lines = [];
     this.idx = 0;
@@ -100,6 +106,22 @@ export class DialogueView extends Container {
     } else {
       this.refreshSpeaker();
     }
+  }
+
+  skip() {
+    this.idx = this.lines.length;
+    this.chars = 0;
+    this.visible = false;
+    this.setSkipProgress(0);
+    const cb = this.onDone;
+    this.onDone = null;
+    if (cb) cb();
+  }
+
+  setSkipProgress(p) {
+    this.skipBar.clear();
+    if (p <= 0) return;
+    this.skipBar.rect(-this.skipWidth, 0, this.skipWidth * Math.min(1, p), 3).fill(0xc9a0ff);
   }
 
   update(dt) {

@@ -359,7 +359,7 @@ export const SCENARIOS = [
     check(t, s) {
       const dealt = s.hits({ source: "super" })[0]?.dmg;
       t.equal(dealt, SUPER.damage * 2, "rage doubles the super's damage");
-      t.ok(s.scene.popups.some((p) => p.t.text === `-${dealt}`), "popup matches", `dealt ${dealt}, popups: ${s.scene.popups.map((p) => p.t.text).join(" ")}`);
+      t.ok(s.scene.popupLayer.texts.includes(`-${dealt}`), "popup matches", `dealt ${dealt}, popups: ${s.scene.popupLayer.texts.join(" ")}`);
     },
   },
   {
@@ -583,6 +583,151 @@ export const SCENARIOS = [
       const firing = s.memo.dir[6];
       t.ok(rest.x > 0.4 && rest.y > 0.3, "at rest: barrel points forward and down", JSON.stringify(rest));
       t.ok(firing.x > 0.9, "firing: barrel points forward", JSON.stringify(firing));
+    },
+  },
+  {
+    id: "ui.popups-stack",
+    group: "UI",
+    title: "Popups that would overlap stack upward instead",
+    frames: 8,
+    setup(s) {
+      s.dummy(330);
+      s.dummy(338, {}, { y: 466 });
+    },
+    input: [{ at: 0, press: ["KeyJ"] }],
+    check(t, s) {
+      const live = s.scene.popupLayer.live.map((p) => p.t);
+      t.equal(live.length, 2, "two damage popups");
+      t.atLeast(Math.abs((live[0]?.y ?? 0) - (live[1]?.y ?? 0)), 12, "vertical gap (px)");
+    },
+  },
+  {
+    id: "ui.popup-pool",
+    group: "UI",
+    title: "Popups are recycled: a long fight creates only a handful of Text objects",
+    frames: 1800,
+    setup(s) {
+      // pin both: punch lunges would otherwise carry the player past a knocked-down dummy
+      s.pin(s.dummy(335, {}, { hp: 99999 }));
+      s.pin(s.player);
+      s.memo.created0 = s.scene.popupLayer.created;
+    },
+    input(f, s) {
+      const p = s.player;
+      return (p.state === "idle" || p.state === "walk") && p.cooldown <= 0 ? { press: ["KeyJ"] } : null;
+    },
+    check(t, s) {
+      t.atLeast(s.hits().length, 20, "many hits landed");
+      t.atMost(s.scene.popupLayer.created - s.memo.created0, 8, "Text objects created");
+    },
+  },
+  {
+    id: "ui.block-feedback",
+    group: "UI",
+    title: "A block reads differently from a hit: steel flash and a chip-damage popup",
+    frames: 30,
+    setup(s) {
+      s.memo.target = s.spawn({ archetype: "shielder", x: 335 }, { dummy: true, facing: -1 });
+      s.memo.steel = false;
+    },
+    input: [{ at: 0, press: ["KeyK"] }],
+    onFrame(s) {
+      const e = s.memo.target;
+      if (e.blockFlash > 0 && e.flash <= 0) s.memo.steel = true;
+      s.memo.texts = [...new Set([...(s.memo.texts ?? []), ...s.scene.popupLayer.texts])];
+    },
+    check(t, s) {
+      const chip = Math.max(1, Math.round(ATTACKS.kick.dmg * HIT.blockDamageMul));
+      t.ok(s.memo.steel, "steel flash, no damage flash");
+      t.ok(s.memo.texts.includes(`-${chip} ԿԼԱՆԿ!`), "popup shows the chip damage", s.memo.texts.join(" | "));
+    },
+  },
+  {
+    id: "ui.pause",
+    group: "UI",
+    title: "Esc pauses everything and shows the pause screen; Esc resumes",
+    frames: 70,
+    setup(s) {
+      s.memo.enemy = s.spawn({ paletteKey: "thug1", x: 650, hp: 999 });
+    },
+    input: [{ at: 10, press: ["Escape"] }, { at: 41, press: ["Escape"] }],
+    onFrame(s, f) {
+      if (f === 12) s.memo.x12 = s.memo.enemy.x;
+      if (f === 38) {
+        s.memo.x38 = s.memo.enemy.x;
+        s.memo.paused = s.scene.paused;
+        s.memo.title = s.scene.overlay.visible ? s.scene.overlay.titleBig.text : "";
+      }
+    },
+    check(t, s) {
+      t.ok(s.memo.paused, "paused after Esc");
+      t.equal(s.memo.title, "ԴԱԴԱՐ", "pause screen shown");
+      t.equal(s.memo.x38, s.memo.x12, "nothing moves while paused");
+      t.ok(!s.scene.paused && s.memo.enemy.x !== s.memo.x38, "resumed after the second Esc");
+    },
+  },
+  {
+    id: "ui.mute",
+    group: "UI",
+    title: "M toggles sound and the HUD shows it",
+    frames: 8,
+    setup(s) {
+      s.memo.initial = s.scene.hud.hudMuted.visible;
+    },
+    input: [{ at: 1, press: ["KeyM"] }, { at: 4, press: ["KeyM"] }],
+    onFrame(s, f) {
+      if (f === 2) s.memo.toggled = s.scene.hud.hudMuted.visible;
+    },
+    check(t, s) {
+      t.equal(s.memo.toggled, !s.memo.initial, "indicator flips after one press");
+      t.equal(s.scene.hud.hudMuted.visible, s.memo.initial, "back to the original state after two");
+    },
+  },
+  {
+    id: "ui.dialogue-skip",
+    group: "UI",
+    title: "Holding an advance key skips the whole conversation",
+    frames: 70,
+    setup(s) {
+      s.scene.showDialogue(STORY.intro, () => {
+        s.memo.doneAt = s.frame;
+        s.scene.game.mode = "playing";
+      });
+    },
+    input: [{ from: 0, to: 69, hold: ["Enter"] }],
+    check(t, s) {
+      t.ok(s.memo.doneAt !== undefined, "dialogue finished");
+      t.atMost(s.memo.doneAt ?? Infinity, 50, "within ~¾ s of holding");
+    },
+  },
+  {
+    id: "ui.boss-bar",
+    group: "UI",
+    title: "A living boss gets the named health bar",
+    frames: 3,
+    setup: (s) => s.spawn({ boss: true, name: "ԳԱԳՈ", paletteKey: "thug1", hp: 120, scale: 1.18, x: 700 }, { dummy: true }),
+    check(t, s) {
+      t.ok(s.scene.hud.bossName.visible, "boss bar visible");
+      t.equal(s.scene.hud.bossName.text, "ԳԱԳՈ", "boss name");
+    },
+  },
+  {
+    id: "ui.controls-hint",
+    group: "UI",
+    title: "The control hint lists every key the game reads",
+    frames: 1,
+    check(t, s) {
+      const hint = s.scene.hud.hudHint.text;
+      for (const key of ["WASD", "J/Z", "K/X", "SPACE", "E ", "L/Shift", "U ", "Esc", "M "]) t.ok(hint.includes(key), `mentions ${key.trim()}`);
+    },
+  },
+  {
+    id: "ui.foreground",
+    group: "UI",
+    title: "The foreground strip doesn't hide the fighters",
+    frames: 1,
+    check(t, s) {
+      t.atMost(s.scene.bg.fore.alpha, 0.35, "foreground opacity");
     },
   },
 ];
