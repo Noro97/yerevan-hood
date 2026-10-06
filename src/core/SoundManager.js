@@ -1,17 +1,39 @@
+const MUTE_KEY = "yerevan-hood.muted";
+
 export class SoundManager {
   constructor() {
     this.ctx = null;
+    this.master = null;
+    this.muted = false;
+    try {
+      this.muted = localStorage.getItem(MUTE_KEY) === "1";
+    } catch {
+      // storage unavailable (private mode, sandboxed iframe): start unmuted
+    }
+  }
+
+  setMuted(muted) {
+    this.muted = muted;
+    if (this.master) this.master.gain.value = muted ? 0 : 1;
+    try {
+      localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+    } catch {
+      // not persisted; the toggle still applies to this session
+    }
   }
 
   ac() {
     try {
       if (!this.ctx) {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = this.muted ? 0 : 1;
+        this.master.connect(this.ctx.destination);
       }
       if (this.ctx.state === "suspended") {
         this.ctx.resume();
       }
-    } catch (e) {
+    } catch {
       this.ctx = null;
     }
     return this.ctx;
@@ -31,7 +53,7 @@ export class SoundManager {
     o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), a.currentTime + dur);
     g.gain.setValueAtTime(vol, a.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
-    o.connect(g).connect(a.destination);
+    o.connect(g).connect(this.master);
     o.start();
     o.stop(a.currentTime + dur + 0.02);
   }
@@ -53,7 +75,7 @@ export class SoundManager {
     const g = a.createGain();
     g.gain.setValueAtTime(vol, a.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
-    src.connect(filt).connect(g).connect(a.destination);
+    src.connect(filt).connect(g).connect(this.master);
     src.start();
   }
 
@@ -85,7 +107,7 @@ export class SoundManager {
       osc.frequency.exponentialRampToValueAtTime(freq * 0.92, now + 0.22);
       gain.gain.setValueAtTime(0.2, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
-      osc.connect(gain).connect(a.destination);
+      osc.connect(gain).connect(this.master);
       osc.start(now);
       osc.stop(now + 0.24);
     }
@@ -106,7 +128,7 @@ export class SoundManager {
     osc.frequency.exponentialRampToValueAtTime(30, now + 0.24);
     gain.gain.setValueAtTime(0.35, now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
-    osc.connect(gain).connect(a.destination);
+    osc.connect(gain).connect(this.master);
     osc.start(now);
     osc.stop(now + 0.26);
 
@@ -132,7 +154,7 @@ export class SoundManager {
       osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + 0.18);
       gain.gain.setValueAtTime(0.14, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-      osc.connect(gain).connect(a.destination);
+      osc.connect(gain).connect(this.master);
       osc.start(now);
       osc.stop(now + 0.2);
     }
@@ -152,7 +174,7 @@ export class SoundManager {
       osc.frequency.setValueAtTime(tone.f, now + tone.t);
       gain.gain.setValueAtTime(0.18, now + tone.t);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.t + tone.d);
-      osc.connect(gain).connect(a.destination);
+      osc.connect(gain).connect(this.master);
       osc.start(now + tone.t);
       osc.stop(now + tone.t + tone.d + 0.02);
     }
@@ -182,5 +204,4 @@ export class SoundManager {
   }
 }
 
-// Singleton export
 export const sfx = new SoundManager();

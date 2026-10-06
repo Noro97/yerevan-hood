@@ -38,6 +38,7 @@ export class FighterModel {
     this.riseTimer = 0;
     this.deadTimer = 0;
     this.flash = 0;
+    this.blockFlash = 0;
     this.invul = 0; // Mercy invulnerability frames (player only)
     this.kbX = 0;
 
@@ -315,6 +316,7 @@ export class FighterModel {
     this.t += dt;
     if (this.cooldown > 0) this.cooldown -= dt;
     if (this.flash > 0) this.flash -= dt;
+    if (this.blockFlash > 0) this.blockFlash -= dt;
     if (this.invul > 0) this.invul -= dt;
     if (this.chainWindow > 0) this.chainWindow -= dt;
     if (this.rollCd > 0) this.rollCd -= dt;

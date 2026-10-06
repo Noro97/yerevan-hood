@@ -40,7 +40,9 @@ test("a shielder facing the attacker blocks; from behind the hit lands in full",
   strike(front.world.playerModel, "kick");
   front.combat.resolveHits();
   assert.equal(front.world.enemies[0].hp, 100 - Math.max(1, Math.round(ATTACKS.kick.dmg * 0.25)));
-  assert.ok(front.events.some(([k, v]) => k === "popup" && v === "ԿԼԱՆԿ!"));
+  const chip = Math.max(1, Math.round(ATTACKS.kick.dmg * 0.25));
+  assert.ok(front.events.some(([k, v]) => k === "popup" && v === `-${chip} ԿԼԱՆԿ!`), "block popup shows the chip damage");
+  assert.ok(front.world.enemies[0].blockFlash > 0 && front.world.enemies[0].flash === 0, "steel flash instead of the hit flash");
 
   const back = makeWorld({ enemies: [{ x: 330, facing: 1, archetype: "shielder" }] });
   strike(back.world.playerModel, "kick");

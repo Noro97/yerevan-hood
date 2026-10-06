@@ -5,6 +5,8 @@ import { textureManager } from "../core/TextureManager.js";
 const BUILDING_X_POSITIONS = [0, 311, 641, 1143, 1365, 1647, 1899, 2201, 2443, 2755];
 const BUILDING_SCALES = [1.1, 1.3, 1.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
 
+const FORE_ALPHA = 0.3;
+
 export const DEFAULT_PROPS_CONFIG = [
   { id: "lamp_1", type: "lamp", x: 180, y: 396, scale: SCALE_CONFIG.PROP_SCALES.lamp },
   { id: "lamp_2", type: "lamp", x: 980, y: 396, scale: SCALE_CONFIG.PROP_SCALES.lamp },
@@ -56,8 +58,10 @@ export class BackgroundView {
     this.cables = new Sprite(tex.cables);
     this.scenery.addChild(this.cables);
 
-    // 5. Out-of-focus foreground strip
+    // Out-of-focus foreground strip. NOTE: the placeholder texture is a near-opaque band over the
+    // whole walkable street, so it's kept faint to leave the fighters readable.
     this.fore = new Sprite(tex.fore);
+    this.fore.alpha = FORE_ALPHA;
     this.foreBaseY = 0;
 
     // Skyline base coordinates

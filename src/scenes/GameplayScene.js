@@ -1,7 +1,7 @@
-import { Container, Graphics, Text, ColorMatrixFilter } from "pixi.js";
+import { Container, Graphics, ColorMatrixFilter } from "pixi.js";
 import { Scene } from "../core/Scene.js";
 import { ParticleSystem } from "../views/ParticleSystem.js";
-import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, ARM_FONT, WEAPONS, STORY, CHAPTERS, chapterOf } from "../core/Constants.js";
+import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, WEAPONS, STORY, CHAPTERS, chapterOf } from "../core/Constants.js";
 import { sfx } from "../core/SoundManager.js?v=3";
 import { rng } from "../core/Random.js";
 import { GameModel } from "../models/GameModel.js";
@@ -17,6 +17,10 @@ import { HUDView } from "../views/HUDView.js";
 import { DialogueView } from "../views/DialogueView.js";
 import { OverlayView } from "../views/OverlayView.js";
 import { CombatSystem } from "../systems/CombatSystem.js";
+import { PopupLayer } from "../views/PopupLayer.js";
+
+const ADVANCE_KEYS = ["Space", "Enter", "KeyJ", "KeyZ", "KeyK"];
+const SKIP_HOLD_FRAMES = 45;
 
 // kind -> [model list property, model→view map property]
 const ENTITY_KINDS = {
@@ -51,8 +55,13 @@ export class GameplayScene extends Scene {
     this.bulletViews = new Map();
     this.throwViews = new Map();
     this.effects = [];
-    this.popups = [];   // Floating damage/heal numbers
+    this.popupLayer = null;
     this.throws = [];   // Weapons in flight
+    this.paused = false;
+    this.skipHold = 0;
+    this.onVisibility = () => {
+      if (document.hidden) this.pause();
+    };
 
     this.floorTop = FLOOR_TOP;
     this.floorBottom = FLOOR_BOTTOM;
@@ -135,13 +144,35 @@ export class GameplayScene extends Scene {
       }),
     });
 
+    this.hud.setMuted(sfx.muted);
+    document.addEventListener("visibilitychange", this.onVisibility);
+
     if (this.studio) this.startStudio();
     else this.startGame();
   }
 
   onExit() {
     delete window.__game;
+    document.removeEventListener("visibilitychange", this.onVisibility);
     super.onExit();
+  }
+
+  /** Esc, or the tab losing focus, during play / banners / dialogue. */
+  pause() {
+    if (this.paused || !["playing", "banner", "dialogue"].includes(this.game.mode)) return;
+    this.paused = true;
+    this.overlay.showPause(sfx.muted);
+  }
+
+  resume() {
+    this.paused = false;
+    this.overlay.hide();
+  }
+
+  toggleMute() {
+    sfx.setMuted(!sfx.muted);
+    this.hud.setMuted(sfx.muted);
+    if (this.paused) this.overlay.showPause(sfx.muted);
   }
 
   clearWorld() {
@@ -160,7 +191,6 @@ export class GameplayScene extends Scene {
       fx.g.destroy();
     }
     this.effects = [];
-    this.popups = [];  // views already destroyed via removeChildren
     this.throws = [];
     this.throwViews.clear();
 
@@ -168,6 +198,7 @@ export class GameplayScene extends Scene {
     this.bg.buildProps(this.actors);
     // Fresh particle pool (old one died with the actors layer)
     this.particles = new ParticleSystem(this.actors);
+    this.popupLayer = new PopupLayer(this.actors);
     this.boundsGraphics = new Graphics();
     this.boundsGraphics.zIndex = 99999;
     this.actors.addChild(this.boundsGraphics);
@@ -509,31 +540,7 @@ export class GameplayScene extends Scene {
   }
 
   spawnPopup(x, y, text, color, size = 15) {
-    const t = new Text({
-      text,
-      style: {
-        fontFamily: ARM_FONT, fontSize: size, fill: color, fontWeight: "900",
-        stroke: { color: 0x120d1d, width: 3 }, letterSpacing: 0.5,
-      },
-    });
-    t.anchor.set(0.5);
-    t.position.set(x, y);
-    t.zIndex = 10000;
-    this.actors.addChild(t);
-    this.popups.push({ t, life: 42 });
-  }
-
-  updatePopups(dt) {
-    for (let i = this.popups.length - 1; i >= 0; i--) {
-      const p = this.popups[i];
-      p.life -= dt;
-      p.t.y -= 1.1 * dt;
-      p.t.alpha = Math.min(1, p.life / 20);
-      if (p.life <= 0) {
-        p.t.destroy();
-        this.popups.splice(i, 1);
-      }
-    }
+    this.popupLayer.spawn(x, y, text, color, size);
   }
 
   spawnPickup(x, y, type, meta = null) {
@@ -682,12 +689,30 @@ export class GameplayScene extends Scene {
   }
 
   update(dt) {
+    const input = this.app.input;
+    if (input.isPressed("KeyM")) this.toggleMute();
+    if (input.isPressed("Escape")) {
+      if (this.paused) this.resume();
+      else this.pause();
+    }
+    if (this.paused) {
+      if (input.isPressed("Enter")) this.resume();
+      return;
+    }
+
     this.frame += dt;
 
     let dialogueJustClosed = false;
     if (this.game.mode === "dialogue") {
       this.dialogue.update(dt);
-      if (this.app.input.isPressed("Space", "Enter", "KeyJ", "KeyZ", "KeyK")) {
+      // hold an advance key to skip the whole conversation
+      this.skipHold = input.isDown(...ADVANCE_KEYS) ? this.skipHold + dt : 0;
+      this.dialogue.setSkipProgress(this.skipHold / SKIP_HOLD_FRAMES);
+      if (this.skipHold >= SKIP_HOLD_FRAMES) {
+        this.skipHold = 0;
+        this.dialogue.skip();
+        dialogueJustClosed = this.game.mode !== "dialogue";
+      } else if (input.isPressed(...ADVANCE_KEYS)) {
         this.dialogue.advance();
         dialogueJustClosed = this.game.mode !== "dialogue";
       }
@@ -868,7 +893,7 @@ export class GameplayScene extends Scene {
 
         this.combat.updatePickups(dt);
         this.updateEffects(dt);
-        this.updatePopups(dt);
+        this.popupLayer.update(dt);
 
         this.syncViews(dt);
 

@@ -60,7 +60,7 @@ export class OverlayView extends Container {
     this.visible = true;
     this.titleBig.text = "GAME OVER";
     this.titleSub.text = `ԽԱՂՆ ԱՎԱՐՏՎԵՑ · ՀԱՇԻՎ ${score}`;
-    this.titlePrompt.text = "PRESS R TO RESTART";
+    this.titlePrompt.text = "R / ENTER — RESTART";
     this.titleInfo.text = `Հասար ալիք ${wave} · You reached wave ${wave}`;
     
     // Reset positions
@@ -76,6 +76,16 @@ export class OverlayView extends Container {
     this.titleInfo.text = "Մեդալը տանն է, թաղը՝ ազատ · The medal is home, the hood is free";
     
     // Reset positions
+    this.titleBig.position.set(W / 2, 170);
+    this.titlePrompt.alpha = 1;
+  }
+
+  showPause(muted) {
+    this.visible = true;
+    this.titleBig.text = "ԴԱԴԱՐ";
+    this.titleSub.text = "PAUSED";
+    this.titlePrompt.text = "ESC / ENTER — CONTINUE";
+    this.titleInfo.text = `M — ${muted ? "ձայնը միացնել · sound on" : "ձայնը անջատել · sound off"}`;
     this.titleBig.position.set(W / 2, 170);
     this.titlePrompt.alpha = 1;
   }
