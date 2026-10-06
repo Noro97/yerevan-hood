@@ -1,0 +1,716 @@
+{
+  "environment/sky": {
+    "png": "assets/textures/environment/sky.png",
+    "width": 960,
+    "height": 540,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "environment/far": {
+    "png": "assets/textures/environment/far.png",
+    "width": 1700,
+    "height": 540,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "environment/mid": {
+    "png": "assets/textures/environment/mid.png",
+    "width": 2600,
+    "height": 540,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "environment/cables": {
+    "png": "assets/textures/environment/cables.png",
+    "width": 2880,
+    "height": 540,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "environment/fences": {
+    "png": "assets/textures/environment/fences.png",
+    "width": 2880,
+    "height": 540,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "environment/street": {
+    "png": "assets/textures/environment/street.png",
+    "width": 2880,
+    "height": 540,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "environment/fore": {
+    "png": "assets/textures/environment/fore.png",
+    "width": 3560,
+    "height": 540,
+    "anchorX": 0,
+    "anchorY": 0
+  },
+  "buildings/building_0": {
+    "png": "assets/textures/buildings/building_0.png",
+    "width": 290,
+    "height": 268,
+    "anchorX": 0,
+    "anchorY": 0.92537
+  },
+  "buildings/building_1": {
+    "png": "assets/textures/buildings/building_1.png",
+    "width": 260,
+    "height": 230,
+    "anchorX": 0,
+    "anchorY": 0.91304
+  },
+  "buildings/building_2": {
+    "png": "assets/textures/buildings/building_2.png",
+    "width": 340,
+    "height": 306,
+    "anchorX": 0,
+    "anchorY": 0.93464
+  },
+  "buildings/building_3": {
+    "png": "assets/textures/buildings/building_3.png",
+    "width": 230,
+    "height": 320,
+    "anchorX": 0,
+    "anchorY": 0.9375
+  },
+  "buildings/building_4": {
+    "png": "assets/textures/buildings/building_4.png",
+    "width": 290,
+    "height": 260,
+    "anchorX": 0,
+    "anchorY": 0.9230769230769231
+  },
+  "buildings/building_5": {
+    "png": "assets/textures/buildings/building_5.png",
+    "width": 260,
+    "height": 310,
+    "anchorX": 0,
+    "anchorY": 0.9354838709677419
+  },
+  "buildings/building_6": {
+    "png": "assets/textures/buildings/building_6.png",
+    "width": 310,
+    "height": 280,
+    "anchorX": 0,
+    "anchorY": 0.9285714285714286
+  },
+  "buildings/building_7": {
+    "png": "assets/textures/buildings/building_7.png",
+    "width": 250,
+    "height": 330,
+    "anchorX": 0,
+    "anchorY": 0.9393939393939394
+  },
+  "buildings/building_8": {
+    "png": "assets/textures/buildings/building_8.png",
+    "width": 320,
+    "height": 270,
+    "anchorX": 0,
+    "anchorY": 0.9259259259259259
+  },
+  "buildings/building_9": {
+    "png": "assets/textures/buildings/building_9.png",
+    "width": 280,
+    "height": 300,
+    "anchorX": 0,
+    "anchorY": 0.9333333333333333
+  },
+  "characters/player_head": {
+    "png": "assets/textures/characters/player_head.png",
+    "width": 26.0,
+    "height": 42.0,
+    "anchorX": 0.5216,
+    "anchorY": 0.9507,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/player_torso": {
+    "png": "assets/textures/characters/player_torso.png",
+    "width": 37.5,
+    "height": 52.75,
+    "anchorX": 0.5012,
+    "anchorY": 0.9608,
+    "res": 4,
+    "pad": 2,
+    "sockets": {
+      "neck": [
+        -0.04,
+        -46.25
+      ],
+      "shoulderL": [
+        -12.76,
+        -42.84
+      ],
+      "shoulderR": [
+        12.67,
+        -42.84
+      ],
+      "hipL": [
+        -5.77,
+        -3.89
+      ],
+      "hipR": [
+        5.68,
+        -3.89
+      ]
+    }
+  },
+  "characters/player_arm": {
+    "png": "assets/textures/characters/player_arm.png",
+    "width": 21.75,
+    "height": 67.5,
+    "anchorX": 0.4112,
+    "anchorY": 0.1194,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/player_leg": {
+    "png": "assets/textures/characters/player_leg.png",
+    "width": 23.75,
+    "height": 68.0,
+    "anchorX": 0.5018,
+    "anchorY": 0.1109,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/thug1_head": {
+    "png": "assets/textures/characters/thug1_head.png",
+    "width": 25.75,
+    "height": 41.0,
+    "anchorX": 0.5667,
+    "anchorY": 0.9497,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/thug1_torso": {
+    "png": "assets/textures/characters/thug1_torso.png",
+    "width": 56.25,
+    "height": 55.25,
+    "anchorX": 0.5007,
+    "anchorY": 0.9651,
+    "res": 4,
+    "pad": 2,
+    "sockets": {
+      "neck": [
+        0.92,
+        -48.76
+      ],
+      "shoulderL": [
+        -13.99,
+        -45.16
+      ],
+      "shoulderR": [
+        15.83,
+        -45.16
+      ],
+      "hipL": [
+        -5.79,
+        -4.11
+      ],
+      "hipR": [
+        7.63,
+        -4.11
+      ]
+    }
+  },
+  "characters/thug1_arm": {
+    "png": "assets/textures/characters/thug1_arm.png",
+    "width": 23.0,
+    "height": 62.75,
+    "anchorX": 0.4144,
+    "anchorY": 0.1325,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/thug1_leg": {
+    "png": "assets/textures/characters/thug1_leg.png",
+    "width": 24.75,
+    "height": 68.5,
+    "anchorX": 0.5169,
+    "anchorY": 0.1117,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/thug2_head": {
+    "png": "assets/textures/characters/thug2_head.png",
+    "width": 25.5,
+    "height": 41.75,
+    "anchorX": 0.4834,
+    "anchorY": 0.9534,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/thug2_torso": {
+    "png": "assets/textures/characters/thug2_torso.png",
+    "width": 51.5,
+    "height": 57.75,
+    "anchorX": 0.5005,
+    "anchorY": 0.9669,
+    "res": 4,
+    "pad": 2,
+    "sockets": {
+      "neck": [
+        -0.26,
+        -51.15
+      ],
+      "shoulderL": [
+        -15.51,
+        -47.38
+      ],
+      "shoulderR": [
+        14.99,
+        -47.38
+      ],
+      "hipL": [
+        -7.12,
+        -4.31
+      ],
+      "hipR": [
+        6.6,
+        -4.31
+      ]
+    }
+  },
+  "characters/thug2_arm": {
+    "png": "assets/textures/characters/thug2_arm.png",
+    "width": 21.5,
+    "height": 67.5,
+    "anchorX": 0.4169,
+    "anchorY": 0.1187,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/thug2_leg": {
+    "png": "assets/textures/characters/thug2_leg.png",
+    "width": 23.75,
+    "height": 68.5,
+    "anchorX": 0.5061,
+    "anchorY": 0.1093,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/thug3_head": {
+    "png": "assets/textures/characters/thug3_head.png",
+    "width": 26.5,
+    "height": 40.75,
+    "anchorX": 0.5766,
+    "anchorY": 0.9494,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/thug3_torso": {
+    "png": "assets/textures/characters/thug3_torso.png",
+    "width": 45.0,
+    "height": 57.75,
+    "anchorX": 0.5001,
+    "anchorY": 0.9647,
+    "res": 4,
+    "pad": 2,
+    "sockets": {
+      "neck": [
+        0.74,
+        -51.03
+      ],
+      "shoulderL": [
+        -13.79,
+        -47.27
+      ],
+      "shoulderR": [
+        15.27,
+        -47.27
+      ],
+      "hipL": [
+        -5.8,
+        -4.3
+      ],
+      "hipR": [
+        7.28,
+        -4.3
+      ]
+    }
+  },
+  "characters/thug3_arm": {
+    "png": "assets/textures/characters/thug3_arm.png",
+    "width": 22.75,
+    "height": 63.5,
+    "anchorX": 0.4096,
+    "anchorY": 0.1269,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/thug3_leg": {
+    "png": "assets/textures/characters/thug3_leg.png",
+    "width": 23.75,
+    "height": 68.25,
+    "anchorX": 0.4971,
+    "anchorY": 0.1113,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/gunner_head": {
+    "png": "assets/textures/characters/gunner_head.png",
+    "width": 25.75,
+    "height": 41.25,
+    "anchorX": 0.531,
+    "anchorY": 0.9529,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/gunner_torso": {
+    "png": "assets/textures/characters/gunner_torso.png",
+    "width": 37.75,
+    "height": 51.0,
+    "anchorX": 0.4995,
+    "anchorY": 0.9617,
+    "res": 4,
+    "pad": 2,
+    "sockets": {
+      "neck": [
+        -0.33,
+        -44.69
+      ],
+      "shoulderL": [
+        -12.38,
+        -41.4
+      ],
+      "shoulderR": [
+        11.72,
+        -41.4
+      ],
+      "hipL": [
+        -5.75,
+        -3.76
+      ],
+      "hipR": [
+        5.09,
+        -3.76
+      ]
+    }
+  },
+  "characters/gunner_arm": {
+    "png": "assets/textures/characters/gunner_arm.png",
+    "width": 21.75,
+    "height": 68.0,
+    "anchorX": 0.4434,
+    "anchorY": 0.1185,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/gunner_leg": {
+    "png": "assets/textures/characters/gunner_leg.png",
+    "width": 23.25,
+    "height": 68.75,
+    "anchorX": 0.5069,
+    "anchorY": 0.1081,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/shielder_head": {
+    "png": "assets/textures/characters/shielder_head.png",
+    "width": 26.75,
+    "height": 40.75,
+    "anchorX": 0.56,
+    "anchorY": 0.9524,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/shielder_torso": {
+    "png": "assets/textures/characters/shielder_torso.png",
+    "width": 45.5,
+    "height": 58.75,
+    "anchorX": 0.4987,
+    "anchorY": 0.9654,
+    "res": 4,
+    "pad": 2,
+    "sockets": {
+      "neck": [
+        -4.24,
+        -51.98
+      ],
+      "shoulderL": [
+        -18.43,
+        -48.15
+      ],
+      "shoulderR": [
+        9.96,
+        -48.15
+      ],
+      "hipL": [
+        -10.63,
+        -4.38
+      ],
+      "hipR": [
+        2.15,
+        -4.38
+      ]
+    }
+  },
+  "characters/shielder_arm": {
+    "png": "assets/textures/characters/shielder_arm.png",
+    "width": 24.75,
+    "height": 65.5,
+    "anchorX": 0.4216,
+    "anchorY": 0.1347,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/shielder_leg": {
+    "png": "assets/textures/characters/shielder_leg.png",
+    "width": 25.0,
+    "height": 68.5,
+    "anchorX": 0.5045,
+    "anchorY": 0.1148,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/boss_head": {
+    "png": "assets/textures/characters/boss_head.png",
+    "width": 26.75,
+    "height": 42.25,
+    "anchorX": 0.5347,
+    "anchorY": 0.9509,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/boss_torso": {
+    "png": "assets/textures/characters/boss_torso.png",
+    "width": 42.25,
+    "height": 51.75,
+    "anchorX": 0.4999,
+    "anchorY": 0.9599,
+    "res": 4,
+    "pad": 2,
+    "sockets": {
+      "neck": [
+        0.46,
+        -45.29
+      ],
+      "shoulderL": [
+        -13.59,
+        -41.95
+      ],
+      "shoulderR": [
+        14.51,
+        -41.95
+      ],
+      "hipL": [
+        -5.86,
+        -3.81
+      ],
+      "hipR": [
+        6.79,
+        -3.81
+      ]
+    }
+  },
+  "characters/boss_arm": {
+    "png": "assets/textures/characters/boss_arm.png",
+    "width": 21.25,
+    "height": 68.25,
+    "anchorX": 0.428,
+    "anchorY": 0.1159,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/boss_leg": {
+    "png": "assets/textures/characters/boss_leg.png",
+    "width": 24.0,
+    "height": 68.75,
+    "anchorX": 0.5001,
+    "anchorY": 0.1105,
+    "res": 4,
+    "pad": 2
+  },
+  "characters/shadow": {
+    "png": "assets/textures/characters/shadow.png",
+    "width": 52,
+    "height": 20,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "props/lamp": {
+    "png": "assets/textures/props/lamp.png",
+    "width": 80,
+    "height": 190,
+    "anchorX": 0.375,
+    "anchorY": 0.92
+  },
+  "props/lada": {
+    "png": "assets/textures/props/lada.png",
+    "width": 140,
+    "height": 70,
+    "anchorX": 0.5,
+    "anchorY": 0.79
+  },
+  "props/bin": {
+    "png": "assets/textures/props/bin.png",
+    "width": 40,
+    "height": 45,
+    "anchorX": 0.5,
+    "anchorY": 0.84
+  },
+  "objects/crate": {
+    "png": "assets/textures/objects/crate.png",
+    "width": 50,
+    "height": 48,
+    "anchorX": 0.5,
+    "anchorY": 0.79
+  },
+  "objects/bullet": {
+    "png": "assets/textures/objects/bullet.png",
+    "width": 20,
+    "height": 10,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "weapons/stick": {
+    "png": "assets/textures/weapons/stick.png",
+    "width": 32,
+    "height": 70,
+    "anchorX": 0.5,
+    "anchorY": 0.14
+  },
+  "weapons/bottle": {
+    "png": "assets/textures/weapons/bottle.png",
+    "width": 32,
+    "height": 70,
+    "anchorX": 0.5,
+    "anchorY": 0.14
+  },
+  "weapons/pistol": {
+    "png": "assets/textures/weapons/pistol.png",
+    "width": 32,
+    "height": 70,
+    "anchorX": 0.5,
+    "anchorY": 0.14
+  },
+  "weapons/lid": {
+    "png": "assets/textures/weapons/lid.png",
+    "width": 32,
+    "height": 70,
+    "anchorX": 0.5,
+    "anchorY": 0.14
+  },
+  "pickups/shawarma": {
+    "png": "assets/textures/pickups/shawarma.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/khorovats": {
+    "png": "assets/textures/pickups/khorovats.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/tan": {
+    "png": "assets/textures/pickups/tan.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/cognac": {
+    "png": "assets/textures/pickups/cognac.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/coin": {
+    "png": "assets/textures/pickups/coin.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/medal": {
+    "png": "assets/textures/pickups/medal.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/stick": {
+    "png": "assets/textures/pickups/stick.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/bottle": {
+    "png": "assets/textures/pickups/bottle.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/pistol": {
+    "png": "assets/textures/pickups/pistol.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/lid": {
+    "png": "assets/textures/pickups/lid.png",
+    "width": 64,
+    "height": 50,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "pickups/pickup_shadow": {
+    "png": "assets/textures/pickups/pickup_shadow.png",
+    "width": 32,
+    "height": 16,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "portraits/davo": {
+    "png": "assets/textures/portraits/davo.png",
+    "width": 72,
+    "height": 72,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "portraits/tatik": {
+    "png": "assets/textures/portraits/tatik.png",
+    "width": 72,
+    "height": 72,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "portraits/armo": {
+    "png": "assets/textures/portraits/armo.png",
+    "width": 72,
+    "height": 72,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "portraits/gago": {
+    "png": "assets/textures/portraits/gago.png",
+    "width": 72,
+    "height": 72,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "portraits/mado": {
+    "png": "assets/textures/portraits/mado.png",
+    "width": 72,
+    "height": 72,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  "portraits/vacho": {
+    "png": "assets/textures/portraits/vacho.png",
+    "width": 72,
+    "height": 72,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  }
+}

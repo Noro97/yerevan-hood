@@ -1,19 +1,21 @@
-import { Container, Graphics } from "pixi.js";
+import { Container, Sprite } from "pixi.js";
+import { CHAR_SCALE } from "../core/Constants.js";
+import { textureManager } from "../core/TextureManager.js";
 
 export class BulletView extends Container {
   constructor() {
     super();
-    const g = new Graphics();
-    
-    // Tiny bright bullet trail
-    g.roundRect(-6, -1.5, 12, 3, 1.5).fill(0xffe28a);
-    
-    this.addChild(g);
+    const tex = textureManager.textures.bullet;
+    this.sprite = textureManager.createSprite(tex);
+    this.addChild(this.sprite);
+    this.scale.set(CHAR_SCALE);
   }
 
   updateView(dt, model) {
     this.x = model.x;
     this.y = model.ry;
-    this.zIndex = model.gy + 10; // Slightly higher depth sorting than characters
+    this.zIndex = model.gy + 10;
+    this.scale.x = (model.vx < 0 ? -1 : 1) * CHAR_SCALE;
+    this.scale.y = CHAR_SCALE;
   }
 }

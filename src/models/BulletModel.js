@@ -3,6 +3,7 @@ import { W } from "../core/Constants.js";
 export class BulletModel {
   constructor({ x, gy, ry, vx, dmg, fromPlayer }) {
     this.x = x;
+    this.prevX = x;
     this.gy = gy; // Ground height (for z-depth matching)
     this.ry = ry; // Visual render height (adjusted for gun height)
     this.vx = vx;
@@ -13,6 +14,7 @@ export class BulletModel {
   }
 
   update(dt, camX) {
+    this.prevX = this.x;
     this.x += this.vx * dt;
     this.life -= dt;
 

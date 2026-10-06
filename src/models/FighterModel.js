@@ -1,4 +1,4 @@
-import { GRAVITY, JUMP_VEL, ATTACKS, AIR_KICK } from "../core/Constants.js";
+import { GRAVITY, JUMP_VEL, ATTACKS, AIR_KICK, CHAR_SCALE, FLOOR_TOP, FLOOR_BOTTOM } from "../core/Constants.js";
 
 export class FighterModel {
   constructor({ x, y, isPlayer = false, scale = 1, hp = 100, speed = 2.4, power = 1 }) {
@@ -9,7 +9,7 @@ export class FighterModel {
     this.vx = 0; // Momentum
     this.vy = 0;
     this.isPlayer = isPlayer;
-    this.scaleF = scale;
+    this.scaleF = scale * CHAR_SCALE;
     this.hp = hp;
     this.maxHp = hp;
     this.speed = speed;
@@ -55,6 +55,8 @@ export class FighterModel {
     // AI configuration parameters
     this.boss = false;
     this.gunner = false;
+    this.dummy = false;
+    this.weaponScale = 1.0;
     this.aiCool = 0;
     this.shootCd = 0;
     this.aiTimer = 0;
@@ -82,6 +84,14 @@ export class FighterModel {
   setMove(dx, dy) {
     this.moveX = dx;
     this.moveY = dy;
+  }
+
+  get hurtbox() {
+    return {
+      rx: 16 * this.scaleF,
+      ry: 9 * this.scaleF,
+      h: 88 * this.scaleF,
+    };
   }
 
   jump() {
@@ -207,6 +217,10 @@ export class FighterModel {
 
   updateAI(dt, playerModel, otherEnemies) {
     if (!this.alive || !playerModel || !playerModel.alive) return;
+    if (this.dummy || this.archetype === "dummy") {
+      this.setMove(0, 0);
+      return;
+    }
     if (this.state === "attack" || this.state === "hurt" || this.state === "down" || this.state === "rise") return;
 
     this.aiTimer -= dt;
@@ -214,12 +228,12 @@ export class FighterModel {
       this.aiTimer = 18 + Math.random() * 22;
       this.aiSide = this.x >= playerModel.x ? 1 : -1;
       if (!this.gunner && Math.random() < 0.18) this.aiSide *= -1;
-      this.aiOffY = (Math.random() - 0.5) * 26;
+      this.aiOffY = (Math.random() - 0.5) * 12 * this.scaleF;
     }
 
-    const standoff = this.gunner ? 215 : (this.boss ? 66 : 56) * this.scaleF;
+    const standoff = this.gunner ? 215 : (this.boss ? 42 : 36) * this.scaleF;
     const tx = Math.max(40, Math.min(2880 - 40, playerModel.x + this.aiSide * standoff));
-    const ty = Math.max(398, Math.min(524, playerModel.y + (this.gunner ? 0 : this.aiOffY)));
+    const ty = Math.max(FLOOR_TOP, Math.min(FLOOR_BOTTOM, playerModel.y + (this.gunner ? 0 : this.aiOffY)));
     const dx = tx - this.x, dy = ty - this.y;
 
     let mx = 0, my = 0;
@@ -238,21 +252,22 @@ export class FighterModel {
     this.setMove(Math.max(-1, Math.min(1, mx)), Math.max(-1, Math.min(1, my)));
 
     const pdx = playerModel.x - this.x;
+    const laneDiff = Math.abs(playerModel.y - this.y);
     if (this.gunner) {
       this.shootCd -= dt;
-      if (this.shootCd <= 0 && Math.abs(playerModel.y - this.y) < 14 && Math.abs(pdx) > 80) {
+      if (this.shootCd <= 0 && laneDiff < 14 * this.scaleF && Math.abs(pdx) > 80) {
         this.facing = Math.sign(pdx) || this.facing;
         this.triggerShoot = true; // Flag for controller to spawn bullet
         this.shootCd = 140 + Math.random() * 60;
-      } else if (Math.abs(pdx) < 58 && Math.abs(playerModel.y - this.y) < 22 && this.cooldown <= 0) {
+      } else if (Math.abs(pdx) < 38 * this.scaleF && laneDiff < 12 * this.scaleF && this.cooldown <= 0) {
         // Close range whip
         this.facing = Math.sign(pdx) || this.facing;
         this.tryAttack("punch");
       }
     } else {
-      // rushers start their lunging punch from much further out
-      const reach = this.archetype === "rusher" ? 128 : 62 * this.scaleF;
-      if (Math.abs(pdx) < reach && Math.abs(playerModel.y - this.y) < 22 && this.cooldown <= 0) {
+      // rushers start their lunging punch from slightly further out
+      const reach = this.archetype === "rusher" ? 75 * this.scaleF : 42 * this.scaleF;
+      if (Math.abs(pdx) < reach && laneDiff < 12 * this.scaleF && this.cooldown <= 0) {
         this.facing = Math.sign(pdx) || this.facing;
         const kind =
           this.archetype === "grappler" ? "kick"
@@ -298,14 +313,27 @@ export class FighterModel {
       case "idle":
       case "walk": {
         const moving = this.moveX !== 0 || this.moveY !== 0;
-        this.state = moving ? "walk" : "idle";
         if (this.moveX !== 0) this.facing = Math.sign(this.moveX);
         const diag = this.moveX !== 0 && this.moveY !== 0 ? 0.72 : 1;
-        const txv = this.moveX * this.speed * diag;
-        const tyv = this.moveY * this.speed * 0.7 * diag;
-        const ease = Math.min(1, 0.28 * dt);
-        this.vx += (txv - this.vx) * ease;
-        this.vy += (tyv - this.vy) * ease;
+        
+        if (moving) {
+          const airFactor = this.z > 0 ? 0.45 : 1.0;
+          const txv = this.moveX * this.speed * diag * airFactor;
+          const tyv = this.moveY * this.speed * 0.7 * diag * airFactor;
+          const ease = Math.min(1, 0.32 * dt);
+          this.vx += (txv - this.vx) * ease;
+          this.vy += (tyv - this.vy) * ease;
+          this.state = "walk";
+        } else {
+          // Crisper deceleration when stopping — eliminates ice-skating idle
+          const decelEase = Math.min(1, 0.48 * dt);
+          this.vx += (0 - this.vx) * decelEase;
+          this.vy += (0 - this.vy) * decelEase;
+          if (Math.abs(this.vx) < 0.15) this.vx = 0;
+          if (Math.abs(this.vy) < 0.15) this.vy = 0;
+          this.state = (this.vx !== 0 || this.vy !== 0) ? "walk" : "idle";
+        }
+
         this.x += this.vx * dt;
         this.y += this.vy * dt;
         break;

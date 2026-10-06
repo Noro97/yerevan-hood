@@ -1,113 +1,54 @@
-import { Container, Graphics, Text } from "pixi.js";
-import { ARM_FONT, PALETTES } from "../core/Constants.js";
+import { Container, Graphics, Sprite, Text } from "pixi.js";
+import { ARM_FONT, PALETTES, CHAR_SCALE, ATTACKS } from "../core/Constants.js";
+import { textureManager } from "../core/TextureManager.js";
 
-const OUTLINE = { width: 1.5, color: 0x140e16, alpha: 0.45 };
+const NECK_TUCK = 6;
+const FOOT_SINK = 1;
+const HAND_INSET = 6;
+const LIE_HEIGHT = 12;
+const FALL_ANGLE = 1.45;
 
-function limbArm(palette) {
-  const c = new Container();
-  const g = new Graphics();
-  g.roundRect(-5, 0, 10, 28, 5).fill(palette.jacket).stroke(OUTLINE);
-  g.rect(-5, 6, 10, 3).fill(palette.stripe);
-  g.circle(0, 30, 5.5).fill(palette.skin).stroke(OUTLINE);
-  c.addChild(g);
-  c.gfx = [g];
-  return c;
-}
-
-function limbLeg(palette) {
-  const c = new Container();
-  const g = new Graphics();
-  g.roundRect(-5.5, 0, 11, 26, 5).fill(palette.pants).stroke(OUTLINE);
-  g.roundRect(-5, 23, 17, 9, 4).fill(palette.shoe).stroke(OUTLINE);
-  c.addChild(g);
-  c.gfx = [g];
-  return c;
-}
-
-function buildHead(palette) {
-  const c = new Container();
-  const g = new Graphics();
-  g.rect(-4, -4, 8, 6).fill(palette.skin);
-  g.circle(0, -12, 11).fill(palette.skin).stroke(OUTLINE);
-  if (palette.beard) g.ellipse(2, -6, 8, 6).fill(palette.beard);
-  g.roundRect(-12, -25, 24, 9, 4).fill(palette.cap).stroke(OUTLINE);
-  g.roundRect(4, -19, 11, 3.5, 2).fill(palette.cap);
-  g.circle(5.5, -13, 1.7).fill(0x1c1c1c);
-  g.rect(2.5, -17, 7, 1.8).fill(0x2a2118);
-  c.addChild(g);
-  c.gfx = [g];
-  return c;
-}
-
-function buildTorso(palette) {
-  const g = new Graphics();
-  g.roundRect(-13, -58, 26, 33, 8).fill(palette.jacket).stroke(OUTLINE);
-  g.roundRect(-13, -58, 7, 33, 8).fill({ color: 0x000000, alpha: 0.12 });
-  g.rect(-13, -50, 26, 3).fill(palette.stripe);
-  g.rect(-13, -44, 26, 2).fill(palette.stripe);
-  if (palette.chain) {
-    g.moveTo(-8, -54).quadraticCurveTo(0, -44, 8, -54).stroke({ width: 2.5, color: 0xd4af37 });
-  }
-  return g;
+function createSprite(tex) {
+  return textureManager.createSprite(tex);
 }
 
 export class FighterView extends Container {
   constructor(paletteKey, isPlayer = false, scale = 1, name = "") {
     super();
+    this.paletteKey = paletteKey;
     this.palette = PALETTES[paletteKey] || PALETTES.thug1;
     this.isPlayer = isPlayer;
-    this.scaleF = scale;
+    this.baseScale = scale;
+    this.scaleF = scale * CHAR_SCALE;
     this.currentWeaponKind = null;
 
-    // Shadow
-    this.shadow = new Graphics();
-    this.shadow.ellipse(0, 0, 22, 7).fill({ color: 0x000000, alpha: 0.35 });
+    const charTex = textureManager.textures.characters[paletteKey] || textureManager.textures.characters.thug1;
+
+    // Shadow as sprite
+    this.shadow = createSprite(textureManager.textures.shadow);
+    this.shadow.anchor.set(0.5, 0.5);
+    this.shadow.scale.set(this.scaleF);
     this.addChild(this.shadow);
 
     // Body node (rotates and scales for facing)
     this.body = new Container();
-    this.body.scale.set(scale);
+    this.body.scale.set(this.scaleF);
     this.addChild(this.body);
 
-    // Visual nodes
-    this.backArm = limbArm(this.palette);
-    this.backArm.position.set(-7, -54);
-    
-    this.backLeg = limbLeg(this.palette);
-    this.backLeg.position.set(-5, -28);
-    
-    this.torso = buildTorso(this.palette);
-    
-    this.frontLeg = limbLeg(this.palette);
-    this.frontLeg.position.set(5, -28);
-    
-    this.head = buildHead(this.palette);
-    this.head.position.set(0, -58);
-    
-    this.frontArm = limbArm(this.palette);
-    this.frontArm.position.set(7, -54);
+    this.backArm = new Sprite();
+    this.backLeg = new Sprite();
+    this.frontLeg = new Sprite();
+    this.torso = new Sprite();
+    this.head = new Sprite();
+    this.frontArm = new Sprite();
 
-    // Weapon slot
-    this.weaponG = new Graphics();
-    this.frontArm.addChild(this.weaponG);
+    this.weaponSprite = new Sprite();
+    this.weaponSprite.visible = false;
+    this.frontArm.addChild(this.weaponSprite);
 
-    this.body.addChild(
-      this.backArm,
-      this.backLeg,
-      this.torso,
-      this.frontLeg,
-      this.head,
-      this.frontArm
-    );
-
-    this.tintables = [
-      ...this.backArm.gfx,
-      ...this.backLeg.gfx,
-      this.torso,
-      ...this.frontLeg.gfx,
-      ...this.head.gfx,
-      ...this.frontArm.gfx,
-    ];
+    this.tintables = [this.backArm, this.backLeg, this.frontLeg, this.torso, this.head, this.frontArm];
+    this.body.addChild(...this.tintables);
+    this.layoutRig(charTex);
 
     // Enemy HUD (health bar and name tag)
     this.hpBar = null;
@@ -117,7 +58,7 @@ export class FighterView extends Container {
       bg.roundRect(-19, 0, 38, 5, 2).fill({ color: 0x000000, alpha: 0.55 });
       this.hpFg = new Graphics();
       this.hpBar.addChild(bg, this.hpFg);
-      this.hpBar.y = -96 * scale;
+      this.hpBar.y = -148 * this.scaleF;
       this.hpBar.visible = false;
       this.addChild(this.hpBar);
 
@@ -134,33 +75,72 @@ export class FighterView extends Container {
           },
         });
         tag.anchor.set(0.5, 1);
-        tag.y = -104 * scale;
+        tag.y = -158 * this.scaleF;
         this.addChild(tag);
       }
     }
   }
 
-  drawWeapon(weapon) {
-    const g = this.weaponG;
-    g.clear();
-    if (!weapon) return;
-    
-    if (weapon.kind === "stick") {
-      g.roundRect(-3, 24, 6, 38, 3).fill(0x8a5a2e).stroke(OUTLINE);
-      g.roundRect(-3, 24, 6, 10, 3).fill(0x6e4520);
-    } else if (weapon.kind === "bottle") {
-      g.roundRect(-3.5, 26, 7, 17, 3).fill(0x2e7d4f).stroke(OUTLINE);
-      g.rect(-1.5, 43, 3, 8).fill(0x2e7d4f);
-      g.rect(-2, 49, 4, 3).fill(0xd4af37);
-    } else if (weapon.kind === "pistol") {
-      g.roundRect(-2.5, 24, 5, 10, 2).fill(0x3a3a42).stroke(OUTLINE);
-      g.roundRect(-2.5, 32, 16, 5, 2).fill(0x2a2a30).stroke(OUTLINE);
-    } else if (weapon.kind === "lid") {
-      // trash-can lid shield (shielder archetype)
-      g.circle(0, 32, 13).fill(0x6e7682).stroke(OUTLINE);
-      g.circle(0, 32, 8).stroke({ width: 1.5, color: 0x575e68 });
-      g.circle(0, 32, 3).fill(0x575e68);
-      g.ellipse(-4, 27, 4, 2.5).fill({ color: 0xffffff, alpha: 0.25 });
+  /**
+   * Places the parts from the sockets measured by scripts/slice_all_characters.py.
+   * Body space: feet on y=0, `body` pivots at the hips so falls and spins turn around the waist.
+   */
+  layoutRig(charTex) {
+    const parts = [
+      [this.backArm, charTex.arm], [this.frontArm, charTex.arm],
+      [this.backLeg, charTex.leg], [this.frontLeg, charTex.leg],
+      [this.torso, charTex.torso], [this.head, charTex.head],
+    ];
+    for (const [sprite, tex] of parts) {
+      sprite.texture = tex;
+      sprite.anchor.set(tex.defaultAnchor.x, tex.defaultAnchor.y);
+    }
+    // NOTE: the leg art has its toes pointing left, so both legs are mirrored to face +x.
+    this.backArm.scale.x = -1;
+    this.backLeg.scale.x = -1;
+    this.frontLeg.scale.x = -1;
+
+    const leg = charTex.leg;
+    const sk = charTex.torso.sockets;
+    const hipY = -(leg.height * (1 - leg.defaultAnchor.y) - leg.pad) + FOOT_SINK;
+    const torsoY = hipY - sk.hipL[1];
+    this.backLeg.position.set(sk.hipL[0], hipY);
+    this.frontLeg.position.set(sk.hipR[0], hipY);
+    this.torso.position.set(0, torsoY);
+    this.head.position.set(sk.neck[0], torsoY + sk.neck[1] + NECK_TUCK);
+    this.backArm.position.set(sk.shoulderL[0], torsoY + sk.shoulderL[1]);
+    this.frontArm.position.set(sk.shoulderR[0], torsoY + sk.shoulderR[1]);
+
+    const arm = charTex.arm;
+    this.weaponSprite.position.set(0, arm.height * (1 - arm.defaultAnchor.y) - arm.pad - HAND_INSET);
+
+    this.hipY = hipY;
+    this.body.pivot.set(0, hipY);
+  }
+
+  setWeaponGraphic(weapon) {
+    if (!weapon || !weapon.kind) {
+      this.weaponSprite.visible = false;
+      return;
+    }
+    const tex = textureManager.textures.weapons[weapon.kind];
+    if (tex) {
+      this.weaponSprite.texture = tex;
+      if (tex.defaultAnchor) {
+        this.weaponSprite.anchor.set(tex.defaultAnchor.x, tex.defaultAnchor.y);
+      }
+      const scale = (weapon.scale !== undefined ? weapon.scale : (this.weaponScale || 1.0));
+      this.weaponSprite.scale.set(scale);
+      this.weaponSprite.visible = true;
+    } else {
+      this.weaponSprite.visible = false;
+    }
+  }
+
+  setWeaponScale(scale) {
+    this.weaponScale = scale;
+    if (this.weaponSprite && this.weaponSprite.texture) {
+      this.weaponSprite.scale.set(scale);
     }
   }
 
@@ -171,6 +151,20 @@ export class FighterView extends Container {
     if (r > 0) {
       this.hpFg.roundRect(-18, 1, 36 * r, 3, 1.5).fill(r > 0.5 ? 0x7ec850 : 0xe65040);
     }
+  }
+
+  setPalette(paletteKey) {
+    const charTex = textureManager.textures.characters[paletteKey];
+    if (!charTex) return;
+    this.paletteKey = paletteKey;
+    this.palette = PALETTES[paletteKey] || PALETTES.thug1;
+    this.layoutRig(charTex);
+  }
+
+  setScaleMultiplier(mult) {
+    this.scaleF = (this.baseScale || 1) * CHAR_SCALE * mult;
+    this.body.scale.set(this.scaleF);
+    this.shadow.scale.set(this.scaleF);
   }
 
   updateView(dt, model) {
@@ -188,24 +182,23 @@ export class FighterView extends Container {
 
     // Shadow scaling
     const sh = Math.max(0.45, 1 - model.z / 140);
-    this.shadow.scale.set(sh);
+    this.shadow.scale.set(sh * this.scaleF);
     this.shadow.alpha = 0.35 * sh + 0.1;
 
-    // Tint pipeline: impact flash (white snap → red) > enrage pulse > buffs > lamp glow
+    // Tint pipeline: impact flash > enrage pulse > buffs > lamp glow
     let baseTint = model.isPlayer
       ? (model.power > 1 ? 0xffc36b : (model.speed > 2.7 ? 0xc8e8ff : 0xffffff))
       : 0xffffff;
     if (model.enraged) {
       baseTint = Math.sin(model.t * 0.2) > 0 ? 0xff9a8a : 0xffd0c0;
     } else if (model.lampGlow > 0) {
-      // warm pool of light under the street lamps
       const k = Math.min(1, model.lampGlow) * 0.45;
       const r = 0xff, gr = Math.round(0xff - 0x26 * k), b = Math.round(0xff - 0x60 * k);
       baseTint = (r << 16) | (gr << 8) | b;
     }
     const tint = model.flash > 6 ? 0xffffff : model.flash > 0 ? 0xff5b5b : baseTint;
-    for (const g of this.tintables) {
-      g.tint = tint;
+    for (const sprite of this.tintables) {
+      sprite.tint = tint;
     }
 
     // Landing squash-and-stretch
@@ -222,10 +215,10 @@ export class FighterView extends Container {
     const weaponKind = model.weapon ? model.weapon.kind : null;
     if (this.currentWeaponKind !== weaponKind) {
       this.currentWeaponKind = weaponKind;
-      this.drawWeapon(model.weapon);
+      this.setWeaponGraphic(model.weapon);
     }
 
-    // Sync enemy health bar (bosses use the big HUD bar instead)
+    // Sync enemy health bar
     if (this.hpBar) {
       const showBar = !model.boss && model.vulnerable && model.hp < model.maxHp;
       this.hpBar.visible = showBar;
@@ -234,57 +227,52 @@ export class FighterView extends Container {
       }
     }
 
-    // Limbs and body animations
+    // Body rotations are facing-relative: positive leans toward the facing direction.
+    const f = model.facing;
     const FA = this.frontArm;
     const BA = this.backArm;
     const FL = this.frontLeg;
     const BL = this.backLeg;
-    const restArm = 0.18;
+    const restArm = 0.06;
     const swing = Math.sin(model.t * 0.25);
+    const lyingDrop = (-this.hipY - LIE_HEIGHT) * this.scaleF;
+    let lean = 0;
 
     switch (model.state) {
       case "idle":
       case "walk": {
         const moving = model.vx !== 0 || model.vy !== 0;
         if (model.z > 0) {
-          // Jump animations
           if (model.airKick) {
             FL.rotation = -1.5;
             BL.rotation = 0.5;
             FA.rotation = restArm + 0.8;
             BA.rotation = restArm - 1;
-            this.body.rotation = 0.3;
+            lean = -0.25;
           } else {
             FL.rotation = 0.55;
             BL.rotation = -0.35;
             FA.rotation = restArm - 0.5;
             BA.rotation = restArm + 0.5;
-            this.body.rotation = 0;
           }
-          this.body.y = -model.z;
         } else if (moving) {
-          // Walk animations
-          FL.rotation = swing * 0.55;
-          BL.rotation = -swing * 0.55;
-          FA.rotation = restArm - swing * 0.45;
-          BA.rotation = restArm + swing * 0.45;
-          this.body.y = Math.abs(Math.cos(model.t * 0.25)) * -2.5;
-          this.body.rotation = 0;
+          FL.rotation = swing * 0.5;
+          BL.rotation = -swing * 0.5;
+          FA.rotation = restArm - swing * 0.4;
+          BA.rotation = restArm + swing * 0.4;
+          this.body.y += Math.abs(Math.cos(model.t * 0.25)) * -2.5;
         } else {
-          // Breathe idle animations
           const breathe = Math.sin(model.t * 0.07);
           FL.rotation = 0;
           BL.rotation = 0;
-          FA.rotation = restArm + breathe * 0.05;
-          BA.rotation = restArm - breathe * 0.05;
-          this.body.y = breathe * 1.2;
-          this.body.rotation = 0;
+          FA.rotation = restArm + breathe * 0.04;
+          BA.rotation = restArm - breathe * 0.04;
+          this.body.y += breathe * 1.2;
         }
         break;
       }
       case "attack": {
-        const a = model.attackKind ? { dur: 18 } : { dur: 26 }; // Fallback punch/kick
-        const dur = model.attackKind && model.attackKind === "kick" ? 26 : 18;
+        const dur = ATTACKS[model.attackKind]?.dur ?? 18;
         const p = Math.min(model.attackTimer / dur, 1);
         let ext;
         if (p < 0.35) ext = p / 0.35;
@@ -294,25 +282,23 @@ export class FighterView extends Container {
 
         if (model.attackKind === "punch" || model.attackKind === "hook") {
           const power = model.attackKind === "hook" ? 1.25 : 1;
-          FA.rotation = restArm + (-1.75 * power - restArm) * ext;
+          FA.rotation = restArm + (-1.65 * power - restArm) * ext;
           BA.rotation = restArm + 0.5 * power * ext;
-          FL.rotation = 0.25 * ext;
+          FL.rotation = 0.2 * ext;
           BL.rotation = -0.2 * ext;
-          this.body.rotation = -0.06 * power * 2 * ext;
-          this.body.y = -model.z;
+          lean = 0.1 * power * ext;
         } else {
-          // Kick
-          FL.rotation = (-1.6) * ext;
+          FL.rotation = -1.6 * ext;
           BL.rotation = 0.3 * ext;
           FA.rotation = restArm + 0.7 * ext;
           BA.rotation = restArm - 0.9 * ext;
-          this.body.rotation = 0.18 * ext;
-          this.body.y = -model.z - 2 * ext;
+          lean = -0.15 * ext;
+          this.body.y -= 2 * ext;
         }
         break;
       }
       case "hurt": {
-        this.body.rotation = 0.22;
+        lean = -0.22;
         FA.rotation = restArm + 0.6;
         BA.rotation = restArm - 0.4;
         FL.rotation = 0.1;
@@ -320,10 +306,9 @@ export class FighterView extends Container {
         break;
       }
       case "roll": {
-        // forward somersault: full spin over the roll duration, limbs tucked
         const p = 1 - Math.max(0, model.rollTimer) / 14;
-        this.body.rotation = p * Math.PI * 2;
-        this.body.y = -6 - Math.sin(p * Math.PI) * 8;
+        lean = p * Math.PI * 2;
+        this.body.y += -6 - Math.sin(p * Math.PI) * 8;
         FA.rotation = 1.2;
         BA.rotation = -1.2;
         FL.rotation = 1.4;
@@ -331,10 +316,9 @@ export class FighterView extends Container {
         break;
       }
       case "down": {
-        const airborne = model.z > 0;
-        const fall = airborne ? Math.min(1, model.downTimer / 10) : 1;
-        this.body.rotation = 1.45 * fall;
-        this.body.y = -model.z + (airborne ? 0 : 9);
+        const fall = model.z > 0 ? Math.min(1, model.downTimer / 10) : 1;
+        lean = -FALL_ANGLE * fall;
+        this.body.y += lyingDrop * fall;
         FA.rotation = 0.5;
         BA.rotation = -0.4;
         FL.rotation = 0.2;
@@ -343,8 +327,8 @@ export class FighterView extends Container {
       }
       case "rise": {
         const p = Math.min(1, model.riseTimer / 18);
-        this.body.rotation = 1.45 * (1 - p);
-        this.body.y = -model.z + 9 * (1 - p);
+        lean = -FALL_ANGLE * (1 - p);
+        this.body.y += lyingDrop * (1 - p);
         FA.rotation = restArm;
         BA.rotation = restArm;
         FL.rotation = 0;
@@ -353,8 +337,8 @@ export class FighterView extends Container {
       }
       case "dead": {
         const fall = Math.min(model.deadTimer / 14, 1);
-        this.body.rotation = 1.5 * fall;
-        this.body.y = -model.z + (model.z > 0 ? 0 : 10 * fall);
+        lean = -FALL_ANGLE * fall;
+        this.body.y += lyingDrop * fall;
         FA.rotation = 0.4;
         BA.rotation = -0.3;
         FL.rotation = 0.15;
@@ -366,12 +350,14 @@ export class FighterView extends Container {
       }
     }
 
-    // ԿԱՅԾԱԿ super: whirlwind spin overrides the pose
     if (model.superSpin > 0) {
-      this.body.rotation = (1 - model.superSpin / 20) * Math.PI * 4;
-      this.body.y = -model.z - 4;
+      lean = (1 - model.superSpin / 20) * Math.PI * 4;
+      this.body.y -= 4;
       FA.rotation = -1.4;
       BA.rotation = 1.4;
     }
+
+    this.body.rotation = lean * f;
+    this.body.y += this.hipY * this.body.scale.y;
   }
 }

@@ -2,24 +2,56 @@ export const W = 960;
 export const H = 540;
 export const WORLD_W = 2880;
 
-export const FLOOR_TOP = 398;
-export const FLOOR_BOTTOM = 524;
+export const FLOOR_TOP = 392;
+export const FLOOR_BOTTOM = 538;
 export const FINAL_WAVE = 9;
 export const BASE_SPEED = 2.7;
 
+export const CHAR_SCALE = 0.70;
+
 export const ARM_FONT = '"Noto Sans Armenian", "Arial Unicode MS", Arial, sans-serif';
 
-export const GRAVITY = 0.5;
-export const JUMP_VEL = 8;
+// Tuned 2.5D brawler jump physics (punchy 26f arc instead of floaty 32f lunar hangtime)
+export const GRAVITY = 0.72;
+export const JUMP_VEL = 9.6;
 
-export const ATTACKS = {
-  punch: { dur: 18, from: 5, to: 11, range: 62, dmg: 9, kb: 4, lunge: 2.2 },
-  kick: { dur: 26, from: 9, to: 16, range: 80, dmg: 14, kb: 8, lunge: 1.4 },
-  // 3rd hit of the J-J-J chain: slower, harder, sends them flying
-  hook: { dur: 22, from: 6, to: 13, range: 68, dmg: 15, kb: 9, lunge: 3 },
+// Combat lane tolerances (replaces the broken 9.8px tolerance)
+export const COMBAT_DEPTH_BAND = 28;
+export const PROJECTILE_DEPTH_BAND = 22;
+
+// Standardized Sizing System (1 meter ≈ 50 pixels)
+export const SCALE_CONFIG = {
+  CHAR_BASE_H: 122,
+  CHAR_SCALE: 0.70, // Human ~85.4px
+  PICKUP_SCALES: {
+    coin: 0.30,       // ~15x15px dram coin
+    medal: 0.35,      // ~18x18px war medal
+    shawarma: 0.42,   // ~27x21px food wrap
+    khorovats: 0.44,  // ~28x22px meat skewers
+    tan: 0.40,        // ~25x20px glass
+    cognac: 0.42,     // ~27x21px bottle
+    stick: 0.50,      // ~32x25px floor club
+    bottle: 0.48,     // ~30x24px floor bottle
+    pistol: 0.48,     // ~30x24px floor gun
+    lid: 0.50,        // ~32x25px floor lid
+    default: 0.45,
+  },
+  PROP_SCALES: {
+    lada: 1.25,       // ~210x87px car
+    lamp: 1.0,        // ~80x190px street lamp
+    bin: 1.0,         // ~40x45px concrete bin
+  },
+  CRATE_SCALE: 0.85,  // ~42x41px wooden crate
 };
 
-export const AIR_KICK = { range: 68, dmg: 17, kb: 9 };
+export const ATTACKS = {
+  punch: { dur: 18, from: 5, to: 11, range: 46, dmg: 9, kb: 4, lunge: 1.8 },
+  kick: { dur: 26, from: 9, to: 16, range: 54, dmg: 14, kb: 8, lunge: 1.2 },
+  // 3rd hit of the J-J-J chain: slower, harder, sends them flying
+  hook: { dur: 22, from: 6, to: 13, range: 50, dmg: 15, kb: 9, lunge: 2.4 },
+};
+
+export const AIR_KICK = { range: 52, dmg: 17, kb: 9 };
 
 export const PALETTES = {
   player: { jacket: 0x1f2126, stripe: 0xffffff, pants: 0x1f2126, skin: 0xd9a06b, cap: 0x2a2d33, shoe: 0xf2f2f2, beard: 0x32241a },
@@ -32,9 +64,10 @@ export const PALETTES = {
 };
 
 export const WEAPONS = {
-  stick: { melee: true, range: 90, dmg: 16, kb: 6, uses: 8, throwDmg: 16, label: "ՓԱՅՏ" },
-  bottle: { melee: true, range: 72, dmg: 13, kb: 5, uses: 4, throwDmg: 20, shatter: true, label: "ՇԻՇ" },
+  stick: { melee: true, range: 60, dmg: 16, kb: 6, uses: 8, throwDmg: 16, label: "ՓԱՅՏ" },
+  bottle: { melee: true, range: 50, dmg: 13, kb: 5, uses: 4, throwDmg: 20, shatter: true, label: "ՇԻՇ" },
   pistol: { melee: false, ammo: 6, dmg: 24, throwDmg: 10, label: "ՄԱԿԱՐՈՎ" },
+  lid: { melee: true, range: 45, dmg: 8, kb: 4, uses: 6, throwDmg: 14, shield: true, label: "ԿԱՓԱԿ" },
 };
 
 export const FACES = {

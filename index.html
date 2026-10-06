@@ -34,10 +34,48 @@
   <script type="importmap">
     { "imports": { "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.mjs" } }
   </script>
+  <script>
+    window.onerror = function(msg, url, line, col, err) {
+      console.error(msg, url, line, col, err);
+      const div = document.createElement("div");
+      div.style.position = "fixed";
+      div.style.top = "10px";
+      div.style.left = "10px";
+      div.style.right = "10px";
+      div.style.background = "rgba(180, 20, 20, 0.92)";
+      div.style.color = "#fff";
+      div.style.padding = "16px";
+      div.style.fontFamily = "monospace";
+      div.style.fontSize = "13px";
+      div.style.zIndex = "999999";
+      div.style.borderRadius = "8px";
+      div.style.whiteSpace = "pre-wrap";
+      div.innerText = "Runtime Error: " + msg + "\nLocation: " + url + ":" + line + ":" + col + (err?.stack ? "\n\nStack:\n" + err.stack : "");
+      document.body.appendChild(div);
+    };
+    window.addEventListener("unhandledrejection", function(e) {
+      console.error("Unhandled Rejection:", e.reason);
+      const div = document.createElement("div");
+      div.style.position = "fixed";
+      div.style.top = "10px";
+      div.style.left = "10px";
+      div.style.right = "10px";
+      div.style.background = "rgba(180, 20, 20, 0.92)";
+      div.style.color = "#fff";
+      div.style.padding = "16px";
+      div.style.fontFamily = "monospace";
+      div.style.fontSize = "13px";
+      div.style.zIndex = "999999";
+      div.style.borderRadius = "8px";
+      div.style.whiteSpace = "pre-wrap";
+      div.innerText = "Startup/Promise Error: " + (e.reason?.stack || e.reason || "Unknown error");
+      document.body.appendChild(div);
+    });
+  </script>
 </head>
 <body>
   <div id="loading">LOADING YEREVAN HOOD…</div>
   <div id="game"></div>
-  <script type="module" src="./src/main.js"></script>
+  <script type="module" src="./src/main.js?v=3"></script>
 </body>
 </html>

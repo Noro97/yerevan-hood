@@ -1,8 +1,8 @@
 import { Container, Graphics, Text, ColorMatrixFilter } from "pixi.js";
 import { Scene } from "../core/Scene.js";
 import { ParticleSystem } from "../views/ParticleSystem.js";
-import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, ARM_FONT, WEAPONS, STORY, CHAPTERS, chapterOf } from "../core/Constants.js";
-import { sfx } from "../core/SoundManager.js";
+import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, ARM_FONT, WEAPONS, STORY, CHAPTERS, chapterOf, CHAR_SCALE, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND, SCALE_CONFIG } from "../core/Constants.js";
+import { sfx } from "../core/SoundManager.js?v=3";
 import { GameModel } from "../models/GameModel.js";
 import { FighterModel } from "../models/FighterModel.js";
 import { CrateModel } from "../models/CrateModel.js";
@@ -40,6 +40,11 @@ export class GameplayScene extends Scene {
     this.effects = [];
     this.popups = [];   // Floating damage/heal numbers
     this.throws = [];   // Weapons in flight
+
+    this.floorTop = FLOOR_TOP;
+    this.floorBottom = FLOOR_BOTTOM;
+    this.showBoundsGuide = false;
+    this.boundsGraphics = null;
   }
 
   onEnter(app) {
@@ -49,7 +54,6 @@ export class GameplayScene extends Scene {
 
     // 1. Create Environmental Layers
     this.bg = new BackgroundView();
-    this.bg.bake(app.pixiApp.renderer); // flatten static scenery to one texture
     this.addChild(this.bg.sky, this.bg.far, this.bg.mid);
 
     // 2. Create Dynamic World Layers
@@ -59,6 +63,11 @@ export class GameplayScene extends Scene {
     this.world.addChild(this.bg.scenery, this.actors);
     this.addChild(this.world);
     this.addChild(this.bg.fore); // out-of-focus foreground strip
+
+    this.boundsGraphics = new Graphics();
+    this.boundsGraphics.zIndex = 99999;
+    this.actors.addChild(this.boundsGraphics);
+    this.updateBoundsGuide();
 
     // Per-chapter color grade on the world
     this.grade = new ColorMatrixFilter();
@@ -116,7 +125,7 @@ export class GameplayScene extends Scene {
   }
 
   clearWorld() {
-    this.actors.removeChildren().forEach((c) => c.destroy({ children: true }));
+    this.actors.removeChildren().forEach((c) => c.destroy({ children: true, texture: false }));
     
     this.enemies = [];
     this.enemyViews.clear();
@@ -138,6 +147,10 @@ export class GameplayScene extends Scene {
     this.bg.buildProps(this.actors);
     // Fresh particle pool (old one died with the actors layer)
     this.particles = new ParticleSystem(this.actors);
+    this.boundsGraphics = new Graphics();
+    this.boundsGraphics.zIndex = 99999;
+    this.actors.addChild(this.boundsGraphics);
+    this.updateBoundsGuide();
   }
 
   startGame() {
@@ -291,7 +304,7 @@ export class GameplayScene extends Scene {
     const num = 2 + (n % 2);
     for (let i = 0; i < num && this.crates.length < 4; i++) {
       const x = Math.max(80, Math.min(WORLD_W - 80, this.game.camX + 100 + Math.random() * (W - 200)));
-      const y = FLOOR_TOP + 14 + Math.random() * (FLOOR_BOTTOM - FLOOR_TOP - 28);
+      const y = this.floorTop + 14 + Math.random() * (this.floorBottom - this.floorTop - 28);
       
       const model = new CrateModel({ x, y });
       const view = new CrateView();
@@ -306,7 +319,7 @@ export class GameplayScene extends Scene {
     const fromLeft = Math.random() < 0.5;
     let x = fromLeft ? this.game.camX - 70 : this.game.camX + W + 70;
     x = Math.max(-80, Math.min(WORLD_W + 80, x));
-    const y = FLOOR_TOP + 10 + Math.random() * (FLOOR_BOTTOM - FLOOR_TOP - 20);
+    const y = this.floorTop + 10 + Math.random() * (this.floorBottom - this.floorTop - 20);
 
     const model = new FighterModel({
       x,
@@ -332,6 +345,175 @@ export class GameplayScene extends Scene {
     this.enemies.push(model);
     this.enemyViews.set(model, view);
     this.actors.addChild(view);
+    return model;
+  }
+
+  spawnCustomEnemy(cfg = {}, x = null, y = null) {
+    if (x === null || x === undefined) {
+      x = this.playerModel ? this.playerModel.x + (Math.random() < 0.5 ? -140 : 140) : this.game.camX + W / 2;
+    }
+    if (y === null || y === undefined) {
+      y = this.playerModel ? this.playerModel.y : this.floorTop + 50;
+    }
+    x = Math.max(30, Math.min(WORLD_W - 30, x));
+    y = Math.max(this.floorTop + 5, Math.min(this.floorBottom - 5, y));
+
+    const model = new FighterModel({
+      x,
+      y,
+      hp: cfg.hp || (cfg.archetype === "dummy" ? 500 : 50),
+      speed: cfg.speed !== undefined ? cfg.speed : (cfg.archetype === "dummy" ? 0 : 1.8),
+      power: cfg.power || 1.0,
+      scale: cfg.scale || 1.0,
+    });
+    model.boss = !!cfg.boss;
+    model.bossName = cfg.name || (cfg.boss ? "BOSS" : cfg.archetype === "dummy" ? "SANDBAG" : null);
+    model.gunner = !!cfg.gunner;
+    model.dummy = !!cfg.dummy || cfg.archetype === "dummy";
+    model.archetype = cfg.archetype || null;
+    model.lungeMul = cfg.lungeMul || (cfg.archetype === "rusher" ? 3.2 : 1);
+    model.aiCool = cfg.aiCool || (cfg.archetype === "grappler" ? 95 : 60);
+    model.shootCd = 60 + Math.random() * 60;
+    model.weaponScale = cfg.weaponScale || 1.0;
+
+    if (cfg.weapon && cfg.weapon !== "none") {
+      const def = WEAPONS[cfg.weapon] || { melee: true, label: cfg.weapon };
+      model.setWeapon({ kind: cfg.weapon, def, scale: model.weaponScale });
+    } else if (model.archetype === "shielder") {
+      model.setWeapon({ kind: "lid", def: { melee: false, label: "ԿԱՓԱԿ" }, scale: model.weaponScale });
+    }
+
+    const paletteKey = cfg.paletteKey || (cfg.boss ? "boss" : cfg.gunner ? "gunner" : cfg.archetype === "shielder" ? "shielder" : "thug1");
+    const view = new FighterView(paletteKey, false, cfg.scale || 1.0, model.bossName || "");
+
+    if (model.weapon) {
+      view.setWeaponScale(model.weaponScale);
+      view.setWeaponGraphic(model.weapon);
+    }
+
+    this.enemies.push(model);
+    this.enemyViews.set(model, view);
+    this.actors.addChild(view);
+    return model;
+  }
+
+  removeEnemy(enemyModel) {
+    if (!enemyModel) return;
+    const view = this.enemyViews.get(enemyModel);
+    if (view) {
+      view.destroy({ children: true, texture: false });
+      this.enemyViews.delete(enemyModel);
+    }
+    const idx = this.enemies.indexOf(enemyModel);
+    if (idx !== -1) {
+      this.enemies.splice(idx, 1);
+    }
+  }
+
+  clearAllEnemies() {
+    for (const e of [...this.enemies]) {
+      this.removeEnemy(e);
+    }
+  }
+
+  killAllEnemies() {
+    for (const e of [...this.enemies]) {
+      if (e.alive) {
+        e.hp = 0;
+        e.applyHit(999, 1, 10, true);
+        this.onKill(e);
+      }
+    }
+  }
+
+  spawnCustomCrate(x = null, y = null) {
+    if (x === null || x === undefined) {
+      x = this.playerModel ? this.playerModel.x + 80 : this.game.camX + 300;
+    }
+    if (y === null || y === undefined) {
+      y = this.playerModel ? this.playerModel.y : this.floorTop + 40;
+    }
+    x = Math.max(40, Math.min(WORLD_W - 40, x));
+    y = Math.max(this.floorTop + 10, Math.min(this.floorBottom - 10, y));
+
+    const model = new CrateModel({ x, y });
+    const view = new CrateView();
+    this.crates.push(model);
+    this.crateViews.set(model, view);
+    this.actors.addChild(view);
+    return model;
+  }
+
+  removeCrate(crateModel) {
+    if (!crateModel) return;
+    const view = this.crateViews.get(crateModel);
+    if (view) {
+      view.destroy({ children: true, texture: false });
+      this.crateViews.delete(crateModel);
+    }
+    const idx = this.crates.indexOf(crateModel);
+    if (idx !== -1) {
+      this.crates.splice(idx, 1);
+    }
+  }
+
+  clearAllCrates() {
+    for (const c of [...this.crates]) {
+      const view = this.crateViews.get(c);
+      if (view) {
+        view.destroy({ children: true, texture: false });
+        this.crateViews.delete(c);
+      }
+    }
+    this.crates = [];
+  }
+
+  spawnCustomPickup(type = "shawarma", x = null, y = null) {
+    if (x === null || x === undefined) {
+      x = this.playerModel ? this.playerModel.x + 60 : this.game.camX + 250;
+    }
+    if (y === null || y === undefined) {
+      y = this.playerModel ? this.playerModel.y : this.floorTop + 40;
+    }
+    x = Math.max(40, Math.min(WORLD_W - 40, x));
+    y = Math.max(this.floorTop + 10, Math.min(this.floorBottom - 10, y));
+
+    const model = new PickupModel({ x, y, type });
+    const view = new PickupView(type);
+    this.pickups.push(model);
+    this.pickupViews.set(model, view);
+    this.actors.addChild(view);
+    return model;
+  }
+
+  removePickup(pickupModel) {
+    if (!pickupModel) return;
+    const view = this.pickupViews.get(pickupModel);
+    if (view) {
+      view.destroy({ children: true, texture: false });
+      this.pickupViews.delete(pickupModel);
+    }
+    const idx = this.pickups.indexOf(pickupModel);
+    if (idx !== -1) {
+      this.pickups.splice(idx, 1);
+    }
+  }
+
+  clearAllPickups() {
+    for (const p of [...this.pickups]) {
+      const view = this.pickupViews.get(p);
+      if (view) {
+        view.destroy({ children: true, texture: false });
+        this.pickupViews.delete(p);
+      }
+    }
+    this.pickups = [];
+  }
+
+  setWave(n) {
+    this.clearAllEnemies();
+    this.game.spawnQueue = [];
+    this.beginWave(n);
   }
 
   spawnSpark(x, y, big = false, color = null) {
@@ -391,6 +573,7 @@ export class GameplayScene extends Scene {
     this.actors.addChild(view);
     this.throws.push({
       x: p.x + p.facing * 24,
+      prevX: p.x + p.facing * 24,
       gy: p.y,
       ry: p.y - 50 * p.scaleF,
       vx: p.facing * 8,
@@ -410,6 +593,8 @@ export class GameplayScene extends Scene {
   updateThrows(dt) {
     for (let i = this.throws.length - 1; i >= 0; i--) {
       const th = this.throws[i];
+      const prevX = th.prevX !== undefined ? th.prevX : th.x;
+      th.prevX = th.x;
       th.x += th.vx * dt;
       th.life -= dt;
       th.view.x = th.x;
@@ -418,14 +603,21 @@ export class GameplayScene extends Scene {
 
       let stopped = th.life <= 0;
       if (!stopped) {
+        const minX = Math.min(prevX, th.x) - 16;
+        const maxX = Math.max(prevX, th.x) + 16;
         for (const t of this.enemies) {
-          if (!t.vulnerable || t.z > 28) continue;
-          if (Math.abs(t.x - th.x) < 22 && Math.abs(t.y - th.gy) < 22) {
-            const dmg = WEAPONS[th.type].throwDmg;
+          if (!t.vulnerable || t.z > 22 * t.scaleF) continue;
+          if (t.x >= minX && t.x <= maxX && Math.abs(t.y - th.gy) <= PROJECTILE_DEPTH_BAND) {
+            const wDef = WEAPONS[th.type];
+            const dmg = wDef ? wDef.throwDmg : 14;
             const killed = t.applyHit(dmg, Math.sign(th.vx), 7, th.type !== "pistol");
-            this.spawnPopup(t.x, t.y - 95 * t.scaleF, `-${dmg}`, 0xffe7b0);
+            this.spawnPopup(t.x, t.y - 75 * t.scaleF, `-${dmg}`, 0xffe7b0);
             this.spawnSpark(th.x, th.ry, true, th.type === "bottle" ? 0x9fe8d8 : 0xffb347);
-            sfx.hit();
+            if (th.type === "bottle") {
+              if (sfx.glassBreak) sfx.glassBreak(); else sfx.hit();
+            } else {
+              if (sfx.heavyHit) sfx.heavyHit(); else sfx.hit();
+            }
             this.game.combo++;
             this.game.comboTimer = 110;
             this.game.score += 20;
@@ -437,8 +629,10 @@ export class GameplayScene extends Scene {
         }
       }
       if (!stopped) {
+        const minX = Math.min(prevX, th.x) - 18;
+        const maxX = Math.max(prevX, th.x) + 18;
         for (const c of this.crates) {
-          if (Math.abs(c.x - th.x) < 24 && Math.abs(c.y - th.gy) < 24) {
+          if (c.x >= minX && c.x <= maxX && Math.abs(c.y - th.gy) <= PROJECTILE_DEPTH_BAND) {
             this.hitCrate(c, 2);
             stopped = true;
             break;
@@ -446,8 +640,8 @@ export class GameplayScene extends Scene {
         }
       }
       if (stopped) {
-        th.view.destroy({ children: true });
-        if (WEAPONS[th.type].shatter) {
+        th.view.destroy({ children: true, texture: false });
+        if (WEAPONS[th.type] && WEAPONS[th.type].shatter) {
           // bottles never survive a flight
           this.spawnSpark(th.x, th.gy - 18, true, 0x9fe8d8);
           this.particles.glass(th.x, th.gy - 18);
@@ -479,7 +673,7 @@ export class GameplayScene extends Scene {
     this.actors.addChild(view);
 
     this.spawnSpark(owner.x + dir * 30, ry, false, 0xfff3c0);
-    sfx.swing();
+    sfx.gunshot();
 
     // Reset firing recoil pose
     owner.state = "attack";
@@ -499,13 +693,30 @@ export class GameplayScene extends Scene {
           ? this.enemies.filter((e) => e.vulnerable)
           : (this.playerModel && this.playerModel.vulnerable ? [this.playerModel] : []);
 
+        const minX = Math.min(b.prevX, b.x) - 12;
+        const maxX = Math.max(b.prevX, b.x) + 12;
+
         for (const t of targets) {
-          if (t.z > 22) continue; // Jumped over bullet
-          if (Math.abs(t.x - b.x) < 16 && Math.abs(t.y - b.gy) < 20) {
-            const killed = t.applyHit(b.dmg, Math.sign(b.vx), 5);
-            this.spawnSpark(b.x, b.ry, false);
-            this.spawnPopup(t.x, t.y - 95 * t.scaleF, `-${b.dmg}`, b.fromPlayer ? 0xffe7b0 : 0xff6a5e);
-            sfx.hit();
+          if (t.z > 20 * t.scaleF) continue; // Jumped over bullet
+          if (t.x >= minX && t.x <= maxX && Math.abs(t.y - b.gy) <= PROJECTILE_DEPTH_BAND) {
+            let blocked = false;
+            const bulletDir = Math.sign(b.vx);
+            if (t.isPlayer && t.weapon && t.weapon.kind === "lid" && (bulletDir !== t.facing)) {
+              blocked = true;
+            } else if (!t.isPlayer && t.archetype === "shielder" && (bulletDir !== t.facing)) {
+              blocked = true;
+            }
+
+            const killed = t.applyHit(blocked ? 2 : b.dmg, bulletDir, blocked ? 2 : 5);
+            if (blocked) {
+              this.spawnSpark(b.x, b.ry, false, 0xb9c2cc);
+              this.spawnPopup(t.x, t.y - 75 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
+              if (sfx.clang) sfx.clang(); else sfx.hit();
+            } else {
+              this.spawnSpark(b.x, b.ry, false);
+              this.spawnPopup(t.x, t.y - 75 * t.scaleF, `-${b.dmg}`, b.fromPlayer ? 0xffe7b0 : 0xff6a5e);
+              if (sfx.heavyHit) sfx.heavyHit(); else sfx.hit();
+            }
             if (b.fromPlayer) {
               this.game.combo++;
               this.game.comboTimer = 110;
@@ -523,8 +734,10 @@ export class GameplayScene extends Scene {
       }
 
       if (!dead && b.fromPlayer) {
+        const minX = Math.min(b.prevX, b.x) - 14;
+        const maxX = Math.max(b.prevX, b.x) + 14;
         for (const c of this.crates) {
-          if (Math.abs(c.x - b.x) < 22 && Math.abs(c.y - b.gy) < 24) {
+          if (c.x >= minX && c.x <= maxX && Math.abs(c.y - b.gy) <= PROJECTILE_DEPTH_BAND) {
             this.hitCrate(c, 2);
             dead = true;
             b.removed = true;
@@ -536,7 +749,7 @@ export class GameplayScene extends Scene {
       if (dead) {
         const view = this.bulletViews.get(b);
         if (view) {
-          view.destroy({ children: true });
+          view.destroy({ children: true, texture: false });
           this.bulletViews.delete(b);
         }
         this.bullets.splice(i, 1);
@@ -586,9 +799,11 @@ export class GameplayScene extends Scene {
         break;
       case "stick":
       case "bottle":
-      case "pistol": {
+      case "pistol":
+      case "lid": {
         if (pm.weapon) return false;
         const def = WEAPONS[p.type];
+        if (!def) return false;
         pm.setWeapon({
           kind: p.type,
           def,
@@ -599,7 +814,11 @@ export class GameplayScene extends Scene {
         break;
       }
     }
-    sfx.pickup();
+    if (p.type === "coin") {
+      sfx.coin();
+    } else {
+      sfx.pickup();
+    }
     return true;
   }
 
@@ -627,16 +846,17 @@ export class GameplayScene extends Scene {
     this.hitstop = 5;
     this.spawnPopup(p.x, p.y - 120 * p.scaleF, "ԿԱՅԾԱԿ!", 0xffe14a, 22);
     this.particles.burst(p.x, p.y - 40, true);
-    sfx.ko();
+    sfx.super();
     for (const e of this.enemies) {
       if (!e.alive) continue;
       const dx = e.x - p.x;
-      if (Math.abs(dx) > 270 || Math.abs(e.y - p.y) > 70) continue;
+      if (Math.abs(dx) > 160 * p.scaleF || Math.abs(e.y - p.y) > 42 * p.scaleF) continue;
+      if (e.z > 40 * e.scaleF) continue;
       e.invul = 0; // the storm respects no block
       if (!e.vulnerable) continue; // ...but grounded knockdowns stay safe
       const killed = e.applyHit(Math.round(38 * p.power), Math.sign(dx) || 1, 11, true);
-      this.spawnPopup(e.x, e.y - 95 * e.scaleF, "-38", 0xffe14a);
-      this.particles.burst(e.x, e.y - 40);
+      this.spawnPopup(e.x, e.y - 75 * e.scaleF, "-38", 0xffe14a);
+      this.particles.burst(e.x, e.y - 35 * e.scaleF);
       if (killed) this.onKill(e);
     }
   }
@@ -661,15 +881,48 @@ export class GameplayScene extends Scene {
     const broken = c.hit(dmg);
     this.spawnSpark(c.x, c.y - 16, false, 0xd9b380);
     this.particles.debris(c.x, c.y);
-    sfx.hit();
     if (broken) {
+      sfx.crateBreak();
       const view = this.crateViews.get(c);
       if (view) {
-        view.destroy({ children: true });
+        view.destroy({ children: true, texture: false });
         this.crateViews.delete(c);
       }
       this.crates.splice(this.crates.indexOf(c), 1);
       this.spawnPickup(c.x, c.y, this.lootRoll());
+    } else {
+      sfx.hit();
+    }
+  }
+
+  resolveBodyCollisions() {
+    const fighters = this.playerModel && this.playerModel.alive
+      ? [this.playerModel, ...this.enemies]
+      : [...this.enemies];
+
+    for (let i = 0; i < fighters.length; i++) {
+      const f1 = fighters[i];
+      if (!f1 || !f1.alive || f1.z > 8 || f1.state === "down") continue;
+      for (let j = i + 1; j < fighters.length; j++) {
+        const f2 = fighters[j];
+        if (!f2 || !f2.alive || f2.z > 8 || f2.state === "down") continue;
+
+        const dx = f1.x - f2.x;
+        const dy = (f1.y - f2.y) * 2.0; // isometric depth compression
+        const dist = Math.hypot(dx, dy);
+        const minDist = (18 * f1.scaleF) + (18 * f2.scaleF);
+
+        if (dist < minDist && dist > 0.001) {
+          const overlap = (minDist - dist) / dist;
+          const pushX = dx * overlap * 0.25;
+          const pushY = (dy / 2.0) * overlap * 0.25;
+
+          f1.x += pushX;
+          f1.y += pushY;
+          f2.x -= pushX;
+          f2.y -= pushY;
+        }
+      }
     }
   }
 
@@ -684,11 +937,29 @@ export class GameplayScene extends Scene {
       let landed = false;
       for (const t of targets) {
         if (!t || !t.vulnerable) continue;
-        if (t.z > 28 && !atk.airKick) continue; // Can't reach jumping target from ground
+
+        // 1. Z-axis (vertical / jump height) check:
+        // Ground attacks cannot hit airborne jumping targets, and airborne attacks must match height
+        if (atk.airKick) {
+          // Dropkick connects while kicker is within the vertical span of target
+          if (atk.z < t.z - 8 * atk.scaleF || atk.z > t.z + 65 * t.scaleF) continue;
+        } else if (atk.z > 6) {
+          // Jumping punch/kick connects only if target is at similar airborne altitude
+          if (Math.abs(t.z - atk.z) > 22 * atk.scaleF) continue;
+        } else {
+          // Ground attack: target must be grounded (cannot punch airborne targets jumping over)
+          if (t.z > 18 * t.scaleF) continue;
+        }
+
+        // 2. Depth / Y-lane alignment check (both fighters must be on the same horizontal lane)
+        const extraLane = (hit.weapon && hit.weapon.kind === "stick") ? 6 : 0;
+        const maxLaneDist = (COMBAT_DEPTH_BAND + extraLane) * Math.min(atk.scaleF, t.scaleF);
+        if (Math.abs(t.y - atk.y) > maxLaneDist) continue;
         
-        const dx = t.x - atk.x;
-        if (dx * atk.facing <= 0) continue;
-        if (Math.abs(dx) > hit.range || Math.abs(t.y - atk.y) > 30) continue;
+        // 3. Forward reach check (target must be in front and within strike reach)
+        const tRadius = t.hurtbox ? t.hurtbox.rx : 16 * t.scaleF;
+        const dx = (t.x - atk.x) * atk.facing;
+        if (dx < -tRadius * 0.5 || dx > hit.range + tRadius * 0.8) continue;
 
         // Knockdown calculations
         let kd = hit.knockdown;
@@ -703,32 +974,48 @@ export class GameplayScene extends Scene {
         }
         if (kd && t.boss && Math.random() < 0.6) kd = false;
 
-        // shielders eat frontal hits on the trash lid
+        // shielders or fighters equipped with a trash lid block frontal hits
         let dmg = hit.dmg;
         let blocked = false;
-        if (t.archetype === "shielder" && t.state !== "down" && t.facing === -atk.facing) {
+        const hasShield = t.archetype === "shielder" || (t.weapon && t.weapon.def && t.weapon.def.shield);
+        if (hasShield && t.state !== "down" && t.facing === -atk.facing) {
           dmg = Math.max(1, Math.round(dmg * 0.25));
           kd = false;
           blocked = true;
+          if (t.isPlayer && t.weapon) {
+            t.weapon.uses--;
+            if (t.weapon.uses <= 0) {
+              this.spawnSpark(t.x, t.y - 40 * t.scaleF, true, 0xb9c2cc);
+              t.setWeapon(null);
+            }
+          }
         }
 
         atk.hitDone = true;
         landed = true;
 
         const killed = t.applyHit(dmg, atk.facing, blocked ? 2 : hit.kb, kd);
+        const hitX = (atk.x + t.x) / 2;
+        const hitY = t.y - 42 * t.scaleF;
         if (blocked) {
-          this.spawnSpark((atk.x + t.x) / 2, t.y - 55, false, 0xb9c2cc);
-          this.spawnPopup(t.x, t.y - 95 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
+          this.spawnSpark(hitX, hitY, false, 0xb9c2cc);
+          this.spawnPopup(t.x, t.y - 75 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
+          if (sfx.clang) sfx.clang(); else sfx.hit();
+          this.hitstop = 3;
         } else {
-          this.spawnSpark((atk.x + t.x) / 2, t.y - 55, hit.kind !== "punch");
+          this.spawnSpark(hitX, hitY, hit.kind !== "punch");
           this.spawnPopup(
-            t.x, t.y - 95 * t.scaleF, `-${dmg}`,
+            t.x, t.y - 75 * t.scaleF, `-${dmg}`,
             atk.isPlayer ? (hit.kind === "punch" ? 0xffe7b0 : 0xffb347) : 0xff6a5e
           );
+          if (hit.kind === "kick" || hit.weapon || atk.boss) {
+            if (sfx.heavyHit) sfx.heavyHit(); else sfx.hit();
+          } else {
+            sfx.hit();
+          }
+          this.hitstop = hit.kind === "punch" ? 2.5 : 4;
         }
-        this.particles.puff((atk.x + t.x) / 2, t.y - 50);
-        sfx.hit();
-        this.hitstop = hit.kind === "punch" ? 2.5 : 4;
+        this.particles.puff(hitX, hitY);
 
         // landing hits charges the ԿԱՅԾԱԿ meter
         if (atk.isPlayer) {
@@ -749,7 +1036,12 @@ export class GameplayScene extends Scene {
           if (hit.weapon) {
             hit.weapon.uses--;
             if (hit.weapon.uses <= 0) {
-              this.spawnSpark(t.x, t.y - 50, true, 0xd9b380);
+              this.spawnSpark(t.x, t.y - 40 * t.scaleF, true, 0xd9b380);
+              if (hit.weapon.kind === "bottle") {
+                if (sfx.glassBreak) sfx.glassBreak(); else sfx.hit();
+              } else {
+                if (sfx.crateBreak) sfx.crateBreak(); else sfx.hit();
+              }
               atk.setWeapon(null);
             }
           }
@@ -763,9 +1055,11 @@ export class GameplayScene extends Scene {
       // Check crates
       if (!landed && atk.isPlayer) {
         for (const c of this.crates) {
-          const dx = c.x - atk.x;
-          if (dx * atk.facing <= 0) continue;
-          if (Math.abs(dx) > hit.range + 8 || Math.abs(c.y - atk.y) > 30) continue;
+          const maxLaneDist = COMBAT_DEPTH_BAND * atk.scaleF;
+          if (Math.abs(c.y - atk.y) > maxLaneDist) continue;
+          if (atk.z > 24 * atk.scaleF) continue;
+          const dx = (c.x - atk.x) * atk.facing;
+          if (dx < -8 * atk.scaleF || dx > hit.range + 16 * atk.scaleF) continue;
           atk.hitDone = true;
           this.hitCrate(c, 1);
           break;
@@ -813,7 +1107,7 @@ export class GameplayScene extends Scene {
           p.removed = true;
           const view = this.pickupViews.get(p);
           if (view) {
-            view.destroy({ children: true });
+            view.destroy({ children: true, texture: false });
             this.pickupViews.delete(p);
           }
           this.pickups.splice(i, 1);
@@ -898,22 +1192,28 @@ export class GameplayScene extends Scene {
   update(dt) {
     this.frame += dt;
 
+    let dialogueJustClosed = false;
     if (this.game.mode === "dialogue") {
       this.dialogue.update(dt);
       if (this.app.input.isPressed("Space", "Enter", "KeyJ", "KeyZ", "KeyK")) {
         this.dialogue.advance();
+        dialogueJustClosed = this.game.mode !== "dialogue";
       }
     }
 
-    if (this.game.mode === "gameover") {
-      if (this.app.input.isPressed("KeyR", "Enter")) {
-        this.startGame();
-      }
-    } else if (this.game.mode === "victory") {
-      if (this.app.input.isPressed("Enter")) {
-        this.startEndless();
-      } else if (this.app.input.isPressed("KeyR")) {
-        this.startGame();
+    // NOTE: the key that closed the dialogue is still "just pressed" this frame;
+    // without this guard, Enter on the ending's last line would skip straight past victory.
+    if (!dialogueJustClosed) {
+      if (this.game.mode === "gameover") {
+        if (this.app.input.isPressed("KeyR", "Enter")) {
+          this.startGame();
+        }
+      } else if (this.game.mode === "victory") {
+        if (this.app.input.isPressed("Enter")) {
+          this.startEndless();
+        } else if (this.app.input.isPressed("KeyR")) {
+          this.startGame();
+        }
       }
     }
 
@@ -988,9 +1288,26 @@ export class GameplayScene extends Scene {
         // 4. Update models
         if (this.playerModel) {
           this.playerModel.update(dt);
-          this.playerModel.x = Math.max(30, Math.min(WORLD_W - 30, this.playerModel.x));
-          this.playerModel.y = Math.max(FLOOR_TOP, Math.min(FLOOR_BOTTOM, this.playerModel.y));
+          if (this.playerModel.x <= 30) {
+            this.playerModel.x = 30;
+            if (this.playerModel.kbX < 0) {
+              this.playerModel.kbX = 0;
+              this.particles.dust(this.playerModel.x, this.playerModel.y, 4);
+              this.game.shake = Math.max(this.game.shake, 4);
+            }
+          } else if (this.playerModel.x >= WORLD_W - 30) {
+            this.playerModel.x = WORLD_W - 30;
+            if (this.playerModel.kbX > 0) {
+              this.playerModel.kbX = 0;
+              this.particles.dust(this.playerModel.x, this.playerModel.y, 4);
+              this.game.shake = Math.max(this.game.shake, 4);
+            }
+          }
+          this.playerModel.y = Math.max(this.floorTop, Math.min(this.floorBottom, this.playerModel.y));
         }
+
+        const minEnemyX = Math.max(10, this.game.camX - 35);
+        const maxEnemyX = Math.min(WORLD_W - 10, this.game.camX + W + 35);
 
         for (const e of this.enemies) {
           e.updateAI(dt, this.playerModel, this.enemies);
@@ -1002,12 +1319,22 @@ export class GameplayScene extends Scene {
           }
 
           e.update(dt);
-          e.x = Math.max(-90, Math.min(WORLD_W + 90, e.x));
-          e.y = Math.max(FLOOR_TOP, Math.min(FLOOR_BOTTOM, e.y));
+          if (e.x < minEnemyX) {
+            e.x = minEnemyX;
+            if (e.kbX < 0) e.kbX = 0;
+          } else if (e.x > maxEnemyX) {
+            e.x = maxEnemyX;
+            if (e.kbX > 0) e.kbX = 0;
+          }
+          e.y = Math.max(this.floorTop, Math.min(this.floorBottom, e.y));
         }
 
+        // Apply physical 2.5D body separation
+        this.resolveBodyCollisions();
+
         // Atmosphere & feedback driven by fighter physics
-        const LAMPS = [180, 980, 1780, 2580];
+        const lampProps = this.bg?.propsList?.filter((p) => p.type === "lamp") || [];
+        const LAMPS = lampProps.length > 0 ? lampProps.map((p) => p.x) : [180, 980, 1780, 2580];
         const allFighters = this.playerModel ? [this.playerModel, ...this.enemies] : this.enemies;
         for (const f of allFighters) {
           // warm pool of light when standing near a street lamp
@@ -1079,7 +1406,7 @@ export class GameplayScene extends Scene {
           if (e.removed) {
             const view = this.enemyViews.get(e);
             if (view) {
-              view.destroy({ children: true });
+              view.destroy({ children: true, texture: false });
               this.enemyViews.delete(e);
             }
             this.enemies.splice(i, 1);
@@ -1105,5 +1432,96 @@ export class GameplayScene extends Scene {
     const boss = this.enemies.find((e) => e.boss && e.alive);
     this.hud.updateView(this.game, this.playerModel, boss);
     this.overlay.updateView(this.frame, this.game.mode);
+  }
+
+  setFloorBounds(top, bottom, show = null) {
+    if (top !== undefined && top !== null) this.floorTop = top;
+    if (bottom !== undefined && bottom !== null) this.floorBottom = bottom;
+    if (show !== null && show !== undefined) this.showBoundsGuide = show;
+
+    if (this.playerModel) {
+      this.playerModel.y = Math.max(this.floorTop, Math.min(this.floorBottom, this.playerModel.y));
+    }
+    for (const e of this.enemies) {
+      e.y = Math.max(this.floorTop, Math.min(this.floorBottom, e.y));
+    }
+    this.updateBoundsGuide();
+  }
+
+  updateBoundsGuide() {
+    if (!this.boundsGraphics) return;
+    this.boundsGraphics.clear();
+    if (!this.showBoundsGuide) return;
+
+    // Draw top boundary line (curb/steps)
+    this.boundsGraphics.moveTo(0, this.floorTop)
+      .lineTo(WORLD_W, this.floorTop)
+      .stroke({ width: 2, color: 0x4da6ff, alpha: 0.85 });
+
+    // Draw bottom boundary line (street endline)
+    this.boundsGraphics.moveTo(0, this.floorBottom)
+      .lineTo(WORLD_W, this.floorBottom)
+      .stroke({ width: 2, color: 0x7ec850, alpha: 0.85 });
+  }
+
+  // World Props & Assets API
+  addProp(type, x, y, scale = 1.0) {
+    return this.bg?.addProp(type, x, y, scale);
+  }
+
+  removeProp(id) {
+    return this.bg?.removeProp(id);
+  }
+
+  updateProp(id, transforms) {
+    return this.bg?.updateProp(id, transforms);
+  }
+
+  getProps() {
+    return this.bg?.propsList || [];
+  }
+
+  setStreetTransform(t) {
+    this.bg?.setStreetTransform(t);
+  }
+
+  setForegroundTransform(t) {
+    this.bg?.setForegroundTransform(t);
+  }
+
+  setFarTransform(t) {
+    this.bg?.setFarTransform(t);
+  }
+
+  setMidTransform(t) {
+    this.bg?.setMidTransform(t);
+  }
+
+  setCablesTransform(t) {
+    this.bg?.setCablesTransform(t);
+  }
+
+  setFencesTransform(t) {
+    this.bg?.setFencesTransform(t);
+  }
+
+  setSkyTransform(t) {
+    this.bg?.setSkyTransform(t);
+  }
+
+  setBuildingTransform(index, t) {
+    this.bg?.setBuildingTransform(index, t);
+  }
+
+  setBuildingVisibility(index, visible) {
+    this.bg?.setBuildingVisibility(index, visible);
+  }
+
+  addBuilding(texIndex, x, y, scaleX = 1.0, scaleY = 1.0) {
+    return this.bg?.addBuilding(texIndex, x, y, scaleX, scaleY);
+  }
+
+  removeBuilding(index) {
+    return this.bg?.removeBuilding(index);
   }
 }
