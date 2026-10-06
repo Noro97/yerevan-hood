@@ -14,11 +14,18 @@ import { rng } from "../core/Random.js";
  *   spawnPickup(x, y, type, meta), spawnBullet(model), spawnThrow(throwModel), despawn(kind, model)
  * `fx` receives cosmetic events only:
  *   spark(x, y, big, color), popup(x, y, text, color, size), sound(name), particles(kind, x, y, arg)
+ * `listener` (optional) receives a structured event for every hit, block, kill, crate hit,
+ * pickup and super — the studio's combat log and scenario checks read these.
  */
 export class CombatSystem {
   constructor(world, fx) {
     this.world = world;
     this.fx = fx;
+    this.listener = null;
+  }
+
+  emit(event) {
+    if (this.listener) this.listener(event);
   }
 
   get game() {
@@ -78,7 +85,9 @@ export class CombatSystem {
           if (t.x >= minX && t.x <= maxX && Math.abs(t.y - th.gy) <= PROJECTILE_DEPTH_BAND) {
             const wDef = WEAPONS[th.type];
             const dmg = wDef ? wDef.throwDmg : THROW.fallbackDamage;
+            const z = t.z;
             const killed = t.applyHit(dmg, Math.sign(th.vx), THROW.knockback, th.type !== "pistol");
+            this.emit({ type: "hit", source: "throw", weapon: th.type, attacker: this.world.playerModel, target: t, dmg, z, killed });
             this.fx.popup(t.x, t.y - 75 * t.scaleF, `-${dmg}`, 0xffe7b0);
             this.fx.spark(th.x, th.ry, true, th.type === "bottle" ? 0x9fe8d8 : 0xffb347);
             this.fx.sound(th.type === "bottle" ? "glassBreak" : "heavyHit");
@@ -157,11 +166,10 @@ export class CombatSystem {
               t.isPlayer ? t.weapon?.kind === "lid" : t.archetype === "shielder"
             );
 
-            const killed = t.applyHit(
-              blocked ? BULLET.blockedDamage : b.dmg,
-              bulletDir,
-              blocked ? BULLET.blockedKnockback : BULLET.knockback,
-            );
+            const dmg = blocked ? BULLET.blockedDamage : b.dmg;
+            const z = t.z;
+            const killed = t.applyHit(dmg, bulletDir, blocked ? BULLET.blockedKnockback : BULLET.knockback);
+            this.emit({ type: blocked ? "block" : "hit", source: "bullet", fromPlayer: b.fromPlayer, target: t, dmg, z, killed });
             if (blocked) {
               this.fx.spark(b.x, b.ry, false, 0xb9c2cc);
               this.fx.popup(t.x, t.y - 75 * t.scaleF, "ԿԼԱՆԿ!", 0xb9c2cc);
@@ -247,6 +255,7 @@ export class CombatSystem {
       }
     }
     this.fx.sound(p.type === "coin" ? "coin" : "pickup");
+    this.emit({ type: "pickup", item: p.type, target: pm });
     return true;
   }
 
@@ -283,6 +292,7 @@ export class CombatSystem {
     this.fx.popup(p.x, p.y - 120 * p.scaleF, "ԿԱՅԾԱԿ!", 0xffe14a, 22);
     this.fx.particles("burst", p.x, p.y - 40, true);
     this.fx.sound("super");
+    this.emit({ type: "super", attacker: p });
     for (const e of this.world.enemies) {
       if (!e.alive) continue;
       const dx = e.x - p.x;
@@ -290,7 +300,10 @@ export class CombatSystem {
       if (e.z > SUPER.maxTargetZ * e.scaleF) continue;
       e.invul = 0; // the storm respects no block
       if (!e.vulnerable) continue; // ...but grounded knockdowns stay safe
-      const killed = e.applyHit(Math.round(SUPER.damage * p.power), Math.sign(dx) || 1, SUPER.knockback, true);
+      const dmg = Math.round(SUPER.damage * p.power);
+      const z = e.z;
+      const killed = e.applyHit(dmg, Math.sign(dx) || 1, SUPER.knockback, true);
+      this.emit({ type: "hit", source: "super", attacker: p, target: e, dmg, z, killed });
       this.fx.popup(e.x, e.y - 75 * e.scaleF, `-${SUPER.damage}`, 0xffe14a);
       this.fx.particles("burst", e.x, e.y - 35 * e.scaleF);
       if (killed) this.onKill(e);
@@ -298,6 +311,7 @@ export class CombatSystem {
   }
 
   onKill(t) {
+    this.emit({ type: "kill", target: t });
     const game = this.game;
     game.score += SCORE.kill + game.wave * SCORE.killPerWave + (t.boss ? SCORE.bossKill : 0);
     game.shake = t.boss ? 14 : 7;
@@ -315,6 +329,7 @@ export class CombatSystem {
 
   hitCrate(c, dmg) {
     const broken = c.hit(dmg);
+    this.emit({ type: "crate", target: c, dmg, broken });
     this.fx.spark(c.x, c.y - 16, false, 0xd9b380);
     this.fx.particles("debris", c.x, c.y);
     if (broken) {
@@ -422,7 +437,12 @@ export class CombatSystem {
         atk.hitDone = true;
         landed = true;
 
+        const z = t.z;
         const killed = t.applyHit(dmg, atk.facing, blocked ? HIT.blockKnockback : hit.kb, kd);
+        this.emit({
+          type: blocked ? "block" : "hit", source: "melee", kind: hit.kind, weapon: hit.weapon?.kind ?? null,
+          attacker: atk, target: t, dmg, z, knockdown: kd, killed,
+        });
         const hitX = (atk.x + t.x) / 2;
         const hitY = t.y - 42 * t.scaleF;
         if (blocked) {

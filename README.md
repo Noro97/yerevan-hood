@@ -90,3 +90,22 @@ Inspired by the genre classics — Streets of Rage's disposable weapons and food
 - **Wooden crates** litter the street — smash them (fists, weapons, or bullets) for random loot.
 - **Gunners** (red jackets) appear from wave 4: they keep their distance and shoot. Dodge vertically, close the gap — they drop their pistol when beaten.
 - Chain hits for combos; +25 HP between waves; bosses always drop loot.
+
+## Development & testing
+
+```bash
+npm install
+npm run serve          # http://localhost:8123 (game) and http://localhost:8123/studio.html (studio)
+npm run check          # lint + unit tests + headless browser tests
+```
+
+**Studio** (`studio.html`) runs the real game scene one fixed frame at a time with a seeded RNG:
+play / pause / step frames at 0.1–8×, one-click scenarios with pass/fail checks (Run instantly or
+Watch in real time), a fighter inspector (click a fighter on the canvas), hit/hurt-box and lane
+overlays, a spawner and a combat log. Scenarios live in `src/studio/scenarios.js`; ones marked
+`knownBug` describe intended behaviour that is still broken and are expected to fail until fixed.
+
+**Tests**: `npm test` runs Node unit tests for the models and `CombatSystem`; `npm run test:e2e`
+runs headless Chrome (set `CHROME_PATH` if Chrome isn't in the default location) — three seeded
+golden playthroughs that must not change unless intended (`UPDATE_GOLDEN=1` re-records them) and
+every studio scenario.

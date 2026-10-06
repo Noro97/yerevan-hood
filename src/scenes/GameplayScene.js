@@ -28,8 +28,10 @@ const ENTITY_KINDS = {
 };
 
 export class GameplayScene extends Scene {
-  constructor() {
+  /** @param {{ studio?: boolean }} options studio: no story or wave progression (testing studio) */
+  constructor({ studio = false } = {}) {
     super();
+    this.studio = studio;
     this.app = null;
     this.frame = 0;
     this.hitstop = 0;
@@ -133,8 +135,8 @@ export class GameplayScene extends Scene {
       }),
     });
 
-    // Start the game logic
-    this.startGame();
+    if (this.studio) this.startStudio();
+    else this.startGame();
   }
 
   onExit() {
@@ -172,9 +174,7 @@ export class GameplayScene extends Scene {
     this.updateBoundsGuide();
   }
 
-  startGame() {
-    this.clearWorld();
-
+  spawnPlayer() {
     this.playerModel = new FighterModel({
       x: 300,
       y: 460,
@@ -184,14 +184,33 @@ export class GameplayScene extends Scene {
       speed: BASE_SPEED,
       power: 1,
     });
+    this.playerModel.label = "Davo";
     this.playerView = new FighterView("player", true, 1.08);
     this.actors.addChild(this.playerView);
+  }
+
+  startGame() {
+    this.clearWorld();
+    this.spawnPlayer();
 
     this.game.reset();
     this.overlay.hide();
     this.setChapterMood(1);
 
     this.showDialogue(STORY.intro, () => this.beginWave(1));
+  }
+
+  /** Empty street, player only, no waves: the studio sets up each scenario from here. */
+  startStudio() {
+    this.clearWorld();
+    this.spawnPlayer();
+    this.game.reset();
+    this.game.wave = 1;
+    this.hitstop = 0;
+    this.frame = 0;
+    this.overlay.hide();
+    this.dialogue.visible = false;
+    this.setChapterMood(1);
   }
 
   startEndless() {
@@ -345,6 +364,7 @@ export class GameplayScene extends Scene {
     });
     model.boss = !!cfg.boss;
     model.bossName = cfg.name || null;
+    model.label = cfg.name || cfg.archetype || (cfg.gunner ? "gunner" : cfg.paletteKey);
     model.gunner = !!cfg.gunner;
     model.archetype = cfg.archetype || null;
     model.lungeMul = cfg.lungeMul || 1;
@@ -393,6 +413,7 @@ export class GameplayScene extends Scene {
     }
 
     const paletteKey = cfg.paletteKey || (cfg.boss ? "boss" : cfg.gunner ? "gunner" : cfg.archetype === "shielder" ? "shielder" : "thug1");
+    model.label = cfg.name || cfg.archetype || (cfg.gunner ? "gunner" : paletteKey);
     const view = new FighterView(paletteKey, false, cfg.scale || 1.0, model.bossName || "");
 
     if (model.weapon) {
@@ -674,7 +695,8 @@ export class GameplayScene extends Scene {
     if (!dialogueJustClosed) {
       if (this.game.mode === "gameover") {
         if (this.app.input.isPressed("KeyR", "Enter")) {
-          this.startGame();
+          if (this.studio) this.startStudio();
+          else this.startGame();
         }
       } else if (this.game.mode === "victory") {
         if (this.app.input.isPressed("Enter")) {
@@ -843,37 +865,7 @@ export class GameplayScene extends Scene {
         this.updateEffects(dt);
         this.updatePopups(dt);
 
-        // 5. Sync Views with Models
-        if (this.playerModel && this.playerView) {
-          this.playerView.updateView(dt, this.playerModel);
-        }
-
-        for (const e of this.enemies) {
-          const view = this.enemyViews.get(e);
-          if (view) view.updateView(dt, e);
-        }
-
-        for (const c of this.crates) {
-          const view = this.crateViews.get(c);
-          if (view) view.updateView(dt, c);
-        }
-
-        for (const p of this.pickups) {
-          const view = this.pickupViews.get(p);
-          if (view) view.updateView(dt, p);
-        }
-
-        for (const b of this.bullets) {
-          const view = this.bulletViews.get(b);
-          if (view) view.updateView(dt, b);
-        }
-
-        for (const th of this.throws) {
-          const view = this.throwViews.get(th);
-          if (!view) continue;
-          view.position.set(th.x, th.ry);
-          view.icon.rotation = th.spin;
-        }
+        this.syncViews(dt);
 
         // 6. Clean up dead entities
         for (const e of this.enemies.filter((enemy) => enemy.removed)) {
@@ -881,7 +873,7 @@ export class GameplayScene extends Scene {
         }
 
         // Check if wave cleared
-        if (this.game.mode === "playing" && this.game.spawnQueue.length === 0 && this.enemies.length === 0 && this.playerModel && this.playerModel.alive) {
+        if (!this.studio && this.game.mode === "playing" && this.game.spawnQueue.length === 0 && this.enemies.length === 0 && this.playerModel && this.playerModel.alive) {
           this.onWaveCleared();
         }
 
@@ -899,6 +891,39 @@ export class GameplayScene extends Scene {
     const boss = this.enemies.find((e) => e.boss && e.alive);
     this.hud.updateView(this.game, this.playerModel, boss);
     this.overlay.updateView(this.frame, this.game.mode);
+  }
+
+  syncViews(dt) {
+    if (this.playerModel && this.playerView) {
+      this.playerView.updateView(dt, this.playerModel);
+    }
+
+    for (const e of this.enemies) {
+      const view = this.enemyViews.get(e);
+      if (view) view.updateView(dt, e);
+    }
+
+    for (const c of this.crates) {
+      const view = this.crateViews.get(c);
+      if (view) view.updateView(dt, c);
+    }
+
+    for (const p of this.pickups) {
+      const view = this.pickupViews.get(p);
+      if (view) view.updateView(dt, p);
+    }
+
+    for (const b of this.bullets) {
+      const view = this.bulletViews.get(b);
+      if (view) view.updateView(dt, b);
+    }
+
+    for (const th of this.throws) {
+      const view = this.throwViews.get(th);
+      if (!view) continue;
+      view.position.set(th.x, th.ry);
+      view.icon.rotation = th.spin;
+    }
   }
 
   setFloorBounds(top, bottom, show = null) {

@@ -1,8 +1,12 @@
 import { rng } from "../core/Random.js";
 import { GRAVITY, JUMP_VEL, ATTACKS, AIR_KICK, CHAR_SCALE, FLOOR_TOP, FLOOR_BOTTOM } from "../core/Constants.js";
 
+let nextId = 1;
+
 export class FighterModel {
   constructor({ x, y, isPlayer = false, scale = 1, hp = 100, speed = 2.4, power = 1 }) {
+    this.id = nextId++;
+    this.label = isPlayer ? "player" : "enemy";
     this.x = x;
     this.y = y;
     this.z = 0; // Height above ground
