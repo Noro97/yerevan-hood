@@ -1,6 +1,7 @@
-import { h, downloadJSON } from "../dom.js";
+import { h } from "../dom.js";
+import { persist } from "../persist.js";
 import { WEAPONS } from "../../data/combat.js";
-import { ITEMS, displayMeters, floorLength, FLOOR_PX_PER_METER } from "../../data/items.js";
+import { ITEMS, displayMeters, floorLength, FLOOR_PX_PER_METER, itemChanges, resetItems } from "../../data/items.js";
 
 const r2 = (v) => Math.round(v * 100) / 100;
 
@@ -9,6 +10,7 @@ export class ItemLabPanel {
   constructor(studio) {
     this.studio = studio;
     this.rows = new Map();
+    this.status = h("span", { class: "muted" });
     const table = h("table", { class: "props items" },
       h("tr", {}, h("th", {}, "item"), h("th", {}, "real m"), h("th", {}, "× show"), h("th", {}, "shown"), h("th", {}, "floor px")),
       Object.keys(ITEMS).map((kind) => this.row(kind)));
@@ -19,7 +21,9 @@ export class ItemLabPanel {
         "“× show” enlarges small things so they stay readable."),
       h("div", { class: "row wrap" },
         h("button", { class: "primary", onClick: () => this.layout() }, "Lay out item lab"),
-        h("button", { onClick: () => downloadJSON("items.json", ITEMS) }, "Export JSON")),
+        h("button", { onClick: () => this.save() }, "Save"),
+        h("button", { onClick: () => this.reset() }, "Reset")),
+      this.status,
       table);
   }
 
@@ -37,15 +41,35 @@ export class ItemLabPanel {
         }
       },
     });
-    this.rows.set(kind, { shown, px });
+    const real = input("real", 0.01);
+    const show = input("show", 0.1);
+    this.rows.set(kind, { shown, px, real, show });
     this.fill(kind);
-    return h("tr", {}, h("th", {}, kind, WEAPONS[kind] ? " ✋" : ""), h("td", {}, input("real", 0.01)), h("td", {}, input("show", 0.1)), shown, px);
+    return h("tr", {}, h("th", {}, kind, WEAPONS[kind] ? " ✋" : ""), h("td", {}, real), h("td", {}, show), shown, px);
   }
 
   fill(kind) {
     const { shown, px } = this.rows.get(kind);
     shown.textContent = `${r2(displayMeters(kind))} m`;
     px.textContent = r2(floorLength(kind));
+  }
+
+  async save() {
+    try {
+      this.status.textContent = await persist("items", itemChanges());
+    } catch (err) {
+      this.status.textContent = `save failed: ${err.message}`;
+    }
+  }
+
+  reset() {
+    resetItems();
+    for (const [kind, { real, show }] of this.rows) {
+      real.value = ITEMS[kind].real;
+      show.value = ITEMS[kind].show;
+    }
+    this.apply();
+    this.status.textContent = "reset to the defaults in items.js (not saved)";
   }
 
   apply() {

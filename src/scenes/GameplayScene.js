@@ -1,7 +1,7 @@
 import { Container, Graphics, ColorMatrixFilter } from "pixi.js";
 import { Scene } from "../core/Scene.js";
 import { ParticleSystem } from "../views/ParticleSystem.js";
-import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, WEAPONS, STORY, CHAPTERS, chapterOf } from "../core/Constants.js";
+import { W, H, WORLD_W, BASE_SPEED, WEAPONS, STORY, CHAPTERS, chapterOf } from "../core/Constants.js";
 import { sfx } from "../core/SoundManager.js?v=3";
 import { rng } from "../core/Random.js";
 import { GameModel } from "../models/GameModel.js";
@@ -9,6 +9,7 @@ import { FighterModel } from "../models/FighterModel.js";
 import { CrateModel } from "../models/CrateModel.js";
 import { PickupModel } from "../models/PickupModel.js";
 import { BackgroundView } from "../views/BackgroundView.js";
+import level from "../data/level.js";
 import { FighterView } from "../views/FighterView.js";
 import { CrateView } from "../views/CrateView.js";
 import { PickupView } from "../views/PickupView.js";
@@ -63,10 +64,8 @@ export class GameplayScene extends Scene {
       if (document.hidden) this.pause();
     };
 
-    this.floorTop = FLOOR_TOP;
-    this.floorBottom = FLOOR_BOTTOM;
-    this.showBoundsGuide = false;
-    this.boundsGraphics = null;
+    this.floorTop = level.floor.top;
+    this.floorBottom = level.floor.bottom;
 
     this.combat = new CombatSystem(this, {
       spark: (x, y, big, color) => this.spawnSpark(x, y, big, color),
@@ -92,11 +91,6 @@ export class GameplayScene extends Scene {
     this.world.addChild(this.bg.scenery, this.actors);
     this.addChild(this.world);
     this.addChild(this.bg.fore); // out-of-focus foreground strip
-
-    this.boundsGraphics = new Graphics();
-    this.boundsGraphics.zIndex = 99999;
-    this.actors.addChild(this.boundsGraphics);
-    this.updateBoundsGuide();
 
     // Per-chapter color grade on the world
     this.grade = new ColorMatrixFilter();
@@ -199,10 +193,6 @@ export class GameplayScene extends Scene {
     // Fresh particle pool (old one died with the actors layer)
     this.particles = new ParticleSystem(this.actors);
     this.popupLayer = new PopupLayer(this.actors);
-    this.boundsGraphics = new Graphics();
-    this.boundsGraphics.zIndex = 99999;
-    this.actors.addChild(this.boundsGraphics);
-    this.updateBoundsGuide();
   }
 
   spawnPlayer() {
@@ -429,7 +419,7 @@ export class GameplayScene extends Scene {
       scale: cfg.scale || 1.0,
     });
     model.boss = !!cfg.boss;
-    model.bossName = cfg.name || (cfg.boss ? "BOSS" : cfg.archetype === "dummy" ? "SANDBAG" : null);
+    model.bossName = cfg.name || (cfg.boss ? "BOSS" : null);
     model.gunner = !!cfg.gunner;
     model.dummy = !!cfg.dummy || cfg.archetype === "dummy";
     model.archetype = cfg.archetype || null;
@@ -853,8 +843,7 @@ export class GameplayScene extends Scene {
         this.clampToStreet(minEnemyX, maxEnemyX);
 
         // Atmosphere & feedback driven by fighter physics
-        const lampProps = this.bg?.propsList?.filter((p) => p.type === "lamp") || [];
-        const LAMPS = lampProps.length > 0 ? lampProps.map((p) => p.x) : [180, 980, 1780, 2580];
+        const LAMPS = this.bg.propsList.filter((p) => p.type === "lamp").map((p) => p.x);
         const allFighters = this.playerModel ? [this.playerModel, ...this.enemies] : this.enemies;
         for (const f of allFighters) {
           // warm pool of light when standing near a street lamp
@@ -971,94 +960,14 @@ export class GameplayScene extends Scene {
     }
   }
 
-  setFloorBounds(top, bottom, show = null) {
-    if (top !== undefined && top !== null) this.floorTop = top;
-    if (bottom !== undefined && bottom !== null) this.floorBottom = bottom;
-    if (show !== null && show !== undefined) this.showBoundsGuide = show;
-
+  setFloorBounds(top, bottom) {
+    this.floorTop = top;
+    this.floorBottom = bottom;
     if (this.playerModel) {
       this.playerModel.y = Math.max(this.floorTop, Math.min(this.floorBottom, this.playerModel.y));
     }
     for (const e of this.enemies) {
       e.y = Math.max(this.floorTop, Math.min(this.floorBottom, e.y));
     }
-    this.updateBoundsGuide();
-  }
-
-  updateBoundsGuide() {
-    if (!this.boundsGraphics) return;
-    this.boundsGraphics.clear();
-    if (!this.showBoundsGuide) return;
-
-    // Draw top boundary line (curb/steps)
-    this.boundsGraphics.moveTo(0, this.floorTop)
-      .lineTo(WORLD_W, this.floorTop)
-      .stroke({ width: 2, color: 0x4da6ff, alpha: 0.85 });
-
-    // Draw bottom boundary line (street endline)
-    this.boundsGraphics.moveTo(0, this.floorBottom)
-      .lineTo(WORLD_W, this.floorBottom)
-      .stroke({ width: 2, color: 0x7ec850, alpha: 0.85 });
-  }
-
-  // World Props & Assets API
-  addProp(type, x, y, scale = 1.0) {
-    return this.bg?.addProp(type, x, y, scale);
-  }
-
-  removeProp(id) {
-    return this.bg?.removeProp(id);
-  }
-
-  updateProp(id, transforms) {
-    return this.bg?.updateProp(id, transforms);
-  }
-
-  getProps() {
-    return this.bg?.propsList || [];
-  }
-
-  setStreetTransform(t) {
-    this.bg?.setStreetTransform(t);
-  }
-
-  setForegroundTransform(t) {
-    this.bg?.setForegroundTransform(t);
-  }
-
-  setFarTransform(t) {
-    this.bg?.setFarTransform(t);
-  }
-
-  setMidTransform(t) {
-    this.bg?.setMidTransform(t);
-  }
-
-  setCablesTransform(t) {
-    this.bg?.setCablesTransform(t);
-  }
-
-  setFencesTransform(t) {
-    this.bg?.setFencesTransform(t);
-  }
-
-  setSkyTransform(t) {
-    this.bg?.setSkyTransform(t);
-  }
-
-  setBuildingTransform(index, t) {
-    this.bg?.setBuildingTransform(index, t);
-  }
-
-  setBuildingVisibility(index, visible) {
-    this.bg?.setBuildingVisibility(index, visible);
-  }
-
-  addBuilding(texIndex, x, y, scaleX = 1.0, scaleY = 1.0) {
-    return this.bg?.addBuilding(texIndex, x, y, scaleX, scaleY);
-  }
-
-  removeBuilding(index) {
-    return this.bg?.removeBuilding(index);
   }
 }

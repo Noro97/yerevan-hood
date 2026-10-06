@@ -1,6 +1,9 @@
 import { h } from "../dom.js";
 import { STORY } from "../../core/Constants.js";
 import { WEAPONS } from "../../data/combat.js";
+import { sfx } from "../../core/SoundManager.js?v=3";
+
+const SOUNDS = ["swing", "hit", "heavyHit", "clang", "gunshot", "crateBreak", "glassBreak", "coin", "pickup", "super", "hurt", "ko", "wave"];
 
 /** Preview every HUD / overlay / dialogue state without playing up to it. */
 export class ScreensPanel {
@@ -61,6 +64,10 @@ export class ScreensPanel {
             s.spawnPopup(p.x - 40, y, "-9", 0xff6a5e);
           }),
         }, "Sample popups (stacked)")),
+      h("h3", {}, "Sound board"),
+      h("div", { class: "row wrap" }, SOUNDS.map((name) => h("button", { onClick: () => sfx[name]() }, name))),
+      h("div", { class: "row" }, "volume",
+        h("input", { type: "range", min: 0, max: 1, step: 0.05, value: sfx.volume, onInput: (e) => sfx.setVolume(Number(e.target.value)) })),
       h("p", { class: "muted" }, "Previews change the live scene; use Reset to get back to a clean street."));
   }
 }

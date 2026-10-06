@@ -1,6 +1,6 @@
 import { ScenarioRunner } from "./ScenarioRunner.js";
 import { OverlayRenderer } from "./OverlayRenderer.js";
-import { SCENARIOS } from "./scenarios.js";
+import { SCENARIOS, FREE_PLAY } from "./scenarios.js";
 import { h } from "./dom.js";
 import { TransportBar } from "./panels/TransportBar.js";
 import { ScenarioPanel } from "./panels/ScenarioPanel.js";
@@ -11,12 +11,10 @@ import { CombatLog } from "./panels/CombatLog.js";
 import { ResultPanel } from "./panels/ResultPanel.js";
 import { ItemLabPanel } from "./panels/ItemLabPanel.js";
 import { ScreensPanel } from "./panels/ScreensPanel.js";
-
-const FREE_PLAY = {
-  id: "free",
-  title: "Free play",
-  setup: (s) => s.dummy(430),
-};
+import { BalancePanel } from "./panels/BalancePanel.js";
+import { LevelPanel } from "./panels/LevelPanel.js";
+import { RigPanel } from "./panels/RigPanel.js";
+import { RecordPanel } from "./panels/RecordPanel.js";
 
 const MAX_STEPS_PER_TICK = 16;
 
@@ -40,6 +38,8 @@ export class Studio {
     this.batch = false;
     this.results = new Map();
     this.handlers = { event: [], result: [], select: [], reset: [] };
+    this.tickHooks = [];
+    this.activeTab = "Scenarios";
 
     app.paused = true;
     scene.combat.listener = (e) => this.onCombatEvent(e);
@@ -51,8 +51,12 @@ export class Studio {
     this.reset(FREE_PLAY);
   }
 
+  /** Subscribes to a studio event; returns the unsubscribe function. */
   on(type, fn) {
     this.handlers[type].push(fn);
+    return () => {
+      this.handlers[type] = this.handlers[type].filter((h) => h !== fn);
+    };
   }
 
   emit(type, payload) {
@@ -69,12 +73,20 @@ export class Studio {
     this.resultPanel = new ResultPanel(this);
     this.itemLab = new ItemLabPanel(this);
     this.screens = new ScreensPanel(this);
+    this.balance = new BalancePanel(this);
+    this.levelPanel = new LevelPanel(this);
+    this.rig = new RigPanel(this);
+    this.recorder = new RecordPanel(this);
 
     const tabs = [
       ["Scenarios", this.scenarioPanel],
       ["Inspect", this.inspector],
       ["Spawn", this.spawn],
+      ["Balance", this.balance],
+      ["Level", this.levelPanel],
       ["Items", this.itemLab],
+      ["Rig", this.rig],
+      ["Record", this.recorder],
       ["Screens", this.screens],
       ["View", this.view],
     ];
@@ -82,6 +94,7 @@ export class Studio {
       h("button", { class: i === 0 ? "tab active" : "tab", onClick: () => showTab(i) }, name));
     const tabBodies = tabs.map(([, panel], i) => h("div", { class: "tab-body", hidden: i !== 0 }, panel.el));
     const showTab = (index) => {
+      this.activeTab = tabs[index][0];
       tabButtons.forEach((b, i) => b.classList.toggle("active", i === index));
       tabBodies.forEach((b, i) => (b.hidden = i !== index));
     };
@@ -100,18 +113,32 @@ export class Studio {
     }
   }
 
+  /** Canvas pointer → { global: stage coords, world: world coords }. */
+  pointer(e) {
+    const canvas = this.app.pixiApp.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const global = {
+      x: ((e.clientX - rect.left) / rect.width) * this.app.pixiApp.screen.width,
+      y: ((e.clientY - rect.top) / rect.height) * this.app.pixiApp.screen.height,
+    };
+    return { global, world: this.scene.world.toLocal(global) };
+  }
+
   bindCanvas() {
     const canvas = this.app.pixiApp.canvas;
+    let drag = null;
     canvas.addEventListener("pointerdown", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const gx = ((e.clientX - rect.left) / rect.width) * this.app.pixiApp.screen.width;
-      const gy = ((e.clientY - rect.top) / rect.height) * this.app.pixiApp.screen.height;
-      const p = this.scene.world.toLocal({ x: gx, y: gy });
+      const { global, world } = this.pointer(e);
+      if (this.activeTab === "Level" && this.levelPanel.pick(global)) {
+        drag = world;
+        canvas.setPointerCapture(e.pointerId);
+        return;
+      }
       const fighters = [this.scene.playerModel, ...this.scene.enemies].filter(Boolean);
       let best = null;
       let bestDist = 55;
       for (const f of fighters) {
-        const d = Math.hypot(f.x - p.x, f.y - f.z - 45 * f.scaleF - p.y);
+        const d = Math.hypot(f.x - world.x, f.y - f.z - 45 * f.scaleF - world.y);
         if (d < bestDist) {
           best = f;
           bestDist = d;
@@ -119,6 +146,17 @@ export class Studio {
       }
       this.select(best);
       if (best) this.showTab("Inspect");
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      const { world } = this.pointer(e);
+      this.levelPanel.dragBy(world.x - drag.x, world.y - drag.y);
+      drag = world;
+    });
+    canvas.addEventListener("pointerup", () => {
+      if (!drag) return;
+      drag = null;
+      this.levelPanel.endDrag();
     });
   }
 
@@ -174,6 +212,7 @@ export class Studio {
       const more = this.runner.stepScenario(this.watching);
       if (!more) this.finishWatch();
     } else {
+      if (this.recorder.recording) this.recorder.capture(this.app.input);
       this.runner.stepFrame();
       this.runner.frame++;
     }
@@ -196,6 +235,7 @@ export class Studio {
     }
     const sel = this.selected;
     if (sel && sel !== this.scene.playerModel && !this.scene.enemies.includes(sel)) this.select(null);
+    for (const hook of this.tickHooks) hook();
     this.overlays.draw(this.scene, this.selected);
     this.transport.tick();
     this.inspector.tick();

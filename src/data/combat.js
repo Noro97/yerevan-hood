@@ -1,5 +1,15 @@
-// Combat tuning: the single source of truth for hit, damage, projectile and loot numbers.
+// Combat tuning: the single source of truth for hit, damage, projectile, loot and movement numbers.
 // Units: pixels at character scale 1 (multiplied by the fighter's scaleF where noted), frames at 60 fps.
+//
+// These are the documented defaults. The studio's Balance tab edits the live values and saves
+// only the changes to ./tuning/balance.js, which is applied at the bottom of this file. Plain
+// numbers are `let` exports so edits reach every importer through ES live bindings.
+import overrides from "./tuning/balance.js";
+import { clone, deepAssign, diff, getPath, setPath } from "./patch.js";
+
+export let GRAVITY = 0.72;
+export let JUMP_VEL = 9.6; // a punchy ~26-frame jump arc
+export let BASE_SPEED = 2.7;
 
 export const ATTACKS = {
   punch: { dur: 18, from: 5, to: 11, range: 46, dmg: 9, kb: 4, lunge: 1.8 },
@@ -18,8 +28,8 @@ export const WEAPONS = {
 };
 
 // Max |Δy| between attacker and target lanes (× the smaller scaleF for melee).
-export const COMBAT_DEPTH_BAND = 28;
-export const PROJECTILE_DEPTH_BAND = 22;
+export let COMBAT_DEPTH_BAND = 28;
+export let PROJECTILE_DEPTH_BAND = 22;
 
 export const HIT = {
   stickExtraLane: 6,
@@ -50,7 +60,7 @@ export const KNOCKDOWN = {
   bossResist: 0.6,
 };
 
-export const COMBO_WINDOW = 110;
+export let COMBO_WINDOW = 110;
 
 export const SCORE = {
   punch: 10,
@@ -162,3 +172,57 @@ export const AI = {
   cooldownBase: 55,
   cooldownRange: 45,
 };
+
+// ---------------------------------------------------------------------------------------------
+// Live tuning (studio Balance tab)
+
+const TABLES = { ATTACKS, AIR_KICK, WEAPONS, HIT, KNOCKDOWN, SCORE, SUPER, BULLET, THROW, LOOT_TABLE, DROPS, PICKUP_EFFECTS, RECOIL, AI };
+
+const SCALARS = {
+  GRAVITY: [() => GRAVITY, (v) => (GRAVITY = v)],
+  JUMP_VEL: [() => JUMP_VEL, (v) => (JUMP_VEL = v)],
+  BASE_SPEED: [() => BASE_SPEED, (v) => (BASE_SPEED = v)],
+  COMBAT_DEPTH_BAND: [() => COMBAT_DEPTH_BAND, (v) => (COMBAT_DEPTH_BAND = v)],
+  PROJECTILE_DEPTH_BAND: [() => PROJECTILE_DEPTH_BAND, (v) => (PROJECTILE_DEPTH_BAND = v)],
+  COMBO_WINDOW: [() => COMBO_WINDOW, (v) => (COMBO_WINDOW = v)],
+};
+
+/** Every tunable value as one plain object: { GRAVITY, ..., ATTACKS: {...}, ... }. */
+export function tuningSnapshot() {
+  return clone({
+    ...Object.fromEntries(Object.entries(SCALARS).map(([k, [get]]) => [k, get()])),
+    ...TABLES,
+  });
+}
+
+export function setTuning(path, value) {
+  const [head] = path.split(".");
+  if (SCALARS[head]) SCALARS[head][1](value);
+  else setPath(TABLES, path, value);
+}
+
+export function getTuning(path) {
+  const [head] = path.split(".");
+  return SCALARS[head] ? SCALARS[head][0]() : getPath(TABLES, path);
+}
+
+export function applyTuning(patch) {
+  for (const [key, value] of Object.entries(patch ?? {})) {
+    if (SCALARS[key]) SCALARS[key][1](value);
+    else if (TABLES[key]) {
+      if (Array.isArray(TABLES[key])) TABLES[key].splice(0, TABLES[key].length, ...clone(value));
+      else deepAssign(TABLES[key], value);
+    }
+  }
+}
+
+export const TUNING_DEFAULTS = tuningSnapshot();
+
+/** Only the values that differ from the defaults — what the studio saves. */
+export const tuningChanges = () => diff(TUNING_DEFAULTS, tuningSnapshot());
+
+export function resetTuning() {
+  applyTuning(TUNING_DEFAULTS);
+}
+
+applyTuning(overrides);

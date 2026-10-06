@@ -5,6 +5,7 @@ export class SoundManager {
     this.ctx = null;
     this.master = null;
     this.muted = false;
+    this.volume = 1;
     try {
       this.muted = localStorage.getItem(MUTE_KEY) === "1";
     } catch {
@@ -12,9 +13,14 @@ export class SoundManager {
     }
   }
 
+  setVolume(volume) {
+    this.volume = volume;
+    if (this.master) this.master.gain.value = this.muted ? 0 : volume;
+  }
+
   setMuted(muted) {
     this.muted = muted;
-    if (this.master) this.master.gain.value = muted ? 0 : 1;
+    if (this.master) this.master.gain.value = muted ? 0 : this.volume;
     try {
       localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
     } catch {
@@ -27,7 +33,7 @@ export class SoundManager {
       if (!this.ctx) {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
         this.master = this.ctx.createGain();
-        this.master.gain.value = this.muted ? 0 : 1;
+        this.master.gain.value = this.muted ? 0 : this.volume;
         this.master.connect(this.ctx.destination);
       }
       if (this.ctx.state === "suspended") {
