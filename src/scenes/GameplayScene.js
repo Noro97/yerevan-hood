@@ -3,6 +3,7 @@ import { Scene } from "../core/Scene.js";
 import { ParticleSystem } from "../views/ParticleSystem.js";
 import { W, H, WORLD_W, FLOOR_TOP, FLOOR_BOTTOM, BASE_SPEED, ARM_FONT, WEAPONS, STORY, CHAPTERS, chapterOf, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND } from "../core/Constants.js";
 import { sfx } from "../core/SoundManager.js?v=3";
+import { rng } from "../core/Random.js";
 import { GameModel } from "../models/GameModel.js";
 import { FighterModel } from "../models/FighterModel.js";
 import { CrateModel } from "../models/CrateModel.js";
@@ -234,9 +235,9 @@ export class GameplayScene extends Scene {
       const cfg = {
         paletteKey: types[(i + n) % types.length],
         hp: 26 + n * 6,
-        speed: 1.25 + Math.random() * 0.6 + n * 0.05,
+        speed: 1.25 + rng.next() * 0.6 + n * 0.05,
         power: 0.5 + n * 0.045,
-        scale: 0.98 + Math.random() * 0.1,
+        scale: 0.98 + rng.next() * 0.1,
         aiCool: Math.max(45, 85 - n * 4),
       };
       // archetype mix-ins as the waves climb
@@ -303,8 +304,8 @@ export class GameplayScene extends Scene {
   spawnCrates(n) {
     const num = 2 + (n % 2);
     for (let i = 0; i < num && this.crates.length < 4; i++) {
-      const x = Math.max(80, Math.min(WORLD_W - 80, this.game.camX + 100 + Math.random() * (W - 200)));
-      const y = this.floorTop + 14 + Math.random() * (this.floorBottom - this.floorTop - 28);
+      const x = Math.max(80, Math.min(WORLD_W - 80, this.game.camX + 100 + rng.next() * (W - 200)));
+      const y = this.floorTop + 14 + rng.next() * (this.floorBottom - this.floorTop - 28);
       
       const model = new CrateModel({ x, y });
       const view = new CrateView();
@@ -316,10 +317,10 @@ export class GameplayScene extends Scene {
   }
 
   spawnEnemy(cfg) {
-    const fromLeft = Math.random() < 0.5;
+    const fromLeft = rng.next() < 0.5;
     let x = fromLeft ? this.game.camX - 70 : this.game.camX + W + 70;
     x = Math.max(-80, Math.min(WORLD_W + 80, x));
-    const y = this.floorTop + 10 + Math.random() * (this.floorBottom - this.floorTop - 20);
+    const y = this.floorTop + 10 + rng.next() * (this.floorBottom - this.floorTop - 20);
 
     const model = new FighterModel({
       x,
@@ -335,7 +336,7 @@ export class GameplayScene extends Scene {
     model.archetype = cfg.archetype || null;
     model.lungeMul = cfg.lungeMul || 1;
     model.aiCool = cfg.aiCool;
-    model.shootCd = 60 + Math.random() * 60;
+    model.shootCd = 60 + rng.next() * 60;
     if (model.archetype === "shielder") {
       model.setWeapon({ kind: "lid", def: { melee: false, label: "ԿԱՓԱԿ" } });
     }
@@ -350,7 +351,7 @@ export class GameplayScene extends Scene {
 
   spawnCustomEnemy(cfg = {}, x = null, y = null) {
     if (x === null || x === undefined) {
-      x = this.playerModel ? this.playerModel.x + (Math.random() < 0.5 ? -140 : 140) : this.game.camX + W / 2;
+      x = this.playerModel ? this.playerModel.x + (rng.next() < 0.5 ? -140 : 140) : this.game.camX + W / 2;
     }
     if (y === null || y === undefined) {
       y = this.playerModel ? this.playerModel.y : this.floorTop + 50;
@@ -373,7 +374,7 @@ export class GameplayScene extends Scene {
     model.archetype = cfg.archetype || null;
     model.lungeMul = cfg.lungeMul || (cfg.archetype === "rusher" ? 3.2 : 1);
     model.aiCool = cfg.aiCool || (cfg.archetype === "grappler" ? 95 : 60);
-    model.shootCd = 60 + Math.random() * 60;
+    model.shootCd = 60 + rng.next() * 60;
     model.weaponScale = cfg.weaponScale || 1.0;
 
     if (cfg.weapon && cfg.weapon !== "none") {
@@ -823,7 +824,7 @@ export class GameplayScene extends Scene {
   }
 
   lootRoll() {
-    const r = Math.random();
+    const r = rng.next();
     if (r < 0.28) return "shawarma";
     if (r < 0.46) return "coin";
     if (r < 0.6) return "stick";
@@ -868,10 +869,10 @@ export class GameplayScene extends Scene {
     if (t.boss) this.game.zoomPunch = 14; // cinematic zoom kick
     if (t.gunner) {
       // their pistol survives with whatever they hadn't fired yet
-      this.spawnPickup(t.x, t.y, "pistol", { ammo: 3 + Math.floor(Math.random() * 4) });
+      this.spawnPickup(t.x, t.y, "pistol", { ammo: 3 + Math.floor(rng.next() * 4) });
     } else if (t.boss && this.game.wave === 9 && !this.game.endless) {
       this.spawnPickup(t.x, t.y, "medal");
-    } else if (Math.random() < Math.min(0.45, 0.28 + this.game.wave * 0.02) || t.boss) {
+    } else if (rng.next() < Math.min(0.45, 0.28 + this.game.wave * 0.02) || t.boss) {
       // food gets more common as the hood gets meaner
       this.spawnPickup(t.x, t.y, this.lootRoll());
     }
@@ -964,15 +965,15 @@ export class GameplayScene extends Scene {
         // Knockdown calculations
         let kd = hit.knockdown;
         if (!kd && atk.isPlayer) {
-          if (hit.kind === "kick" && Math.random() < 0.35) kd = true;
-          if (hit.kind === "hook" && Math.random() < 0.6) kd = true;
-          if (hit.weapon && hit.weapon.kind === "stick" && Math.random() < 0.5) kd = true;
+          if (hit.kind === "kick" && rng.next() < 0.35) kd = true;
+          if (hit.kind === "hook" && rng.next() < 0.6) kd = true;
+          if (hit.weapon && hit.weapon.kind === "stick" && rng.next() < 0.5) kd = true;
         } else if (!kd && !atk.isPlayer) {
           if (atk.archetype === "grappler") kd = true; // the bear hug always slams
-          else if (atk.boss && Math.random() < 0.5) kd = true;
-          else if (hit.kind === "kick" && Math.random() < 0.18) kd = true;
+          else if (atk.boss && rng.next() < 0.5) kd = true;
+          else if (hit.kind === "kick" && rng.next() < 0.18) kd = true;
         }
-        if (kd && t.boss && Math.random() < 0.6) kd = false;
+        if (kd && t.boss && rng.next() < 0.6) kd = false;
 
         // shielders or fighters equipped with a trash lid block frontal hits
         let dmg = hit.dmg;

@@ -1,10 +1,12 @@
+import { rng } from "../core/Random.js";
+
 export class PickupModel {
   constructor({ x, y, type, meta = null }) {
     this.x = x;
     this.y = y;
     this.type = type;
     this.meta = meta; // Preserved weapon state (remaining uses/ammo)
-    this.t = Math.random() * 60; // Initial anim offset
+    this.t = rng.next() * 60; // Initial anim offset
     this.bobOffset = 0;
     this.removed = false;
   }

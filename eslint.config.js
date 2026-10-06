@@ -13,6 +13,10 @@ export default [
     languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: globals.node },
   },
   {
+    files: ["tests/e2e/**/*.mjs"],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
+  {
     rules: {
       "no-unused-vars": ["error", { args: "none", caughtErrors: "none" }],
     },

@@ -1,3 +1,4 @@
+import { rng } from "../core/Random.js";
 import { GRAVITY, JUMP_VEL, ATTACKS, AIR_KICK, CHAR_SCALE, FLOOR_TOP, FLOOR_BOTTOM } from "../core/Constants.js";
 
 export class FighterModel {
@@ -60,7 +61,7 @@ export class FighterModel {
     this.aiCool = 0;
     this.shootCd = 0;
     this.aiTimer = 0;
-    this.aiSide = Math.random() < 0.5 ? -1 : 1;
+    this.aiSide = rng.next() < 0.5 ? -1 : 1;
     this.aiOffY = 0;
 
     this.weapon = null;
@@ -225,10 +226,10 @@ export class FighterModel {
 
     this.aiTimer -= dt;
     if (this.aiTimer <= 0) {
-      this.aiTimer = 18 + Math.random() * 22;
+      this.aiTimer = 18 + rng.next() * 22;
       this.aiSide = this.x >= playerModel.x ? 1 : -1;
-      if (!this.gunner && Math.random() < 0.18) this.aiSide *= -1;
-      this.aiOffY = (Math.random() - 0.5) * 12 * this.scaleF;
+      if (!this.gunner && rng.next() < 0.18) this.aiSide *= -1;
+      this.aiOffY = (rng.next() - 0.5) * 12 * this.scaleF;
     }
 
     const standoff = this.gunner ? 215 : (this.boss ? 42 : 36) * this.scaleF;
@@ -258,7 +259,7 @@ export class FighterModel {
       if (this.shootCd <= 0 && laneDiff < 14 * this.scaleF && Math.abs(pdx) > 80) {
         this.facing = Math.sign(pdx) || this.facing;
         this.triggerShoot = true; // Flag for controller to spawn bullet
-        this.shootCd = 140 + Math.random() * 60;
+        this.shootCd = 140 + rng.next() * 60;
       } else if (Math.abs(pdx) < 38 * this.scaleF && laneDiff < 12 * this.scaleF && this.cooldown <= 0) {
         // Close range whip
         this.facing = Math.sign(pdx) || this.facing;
@@ -272,7 +273,7 @@ export class FighterModel {
         const kind =
           this.archetype === "grappler" ? "kick"
           : this.archetype === "rusher" ? "punch"
-          : Math.random() < 0.65 ? "punch" : "kick";
+          : rng.next() < 0.65 ? "punch" : "kick";
         this.tryAttack(kind);
       }
     }
@@ -348,7 +349,7 @@ export class FighterModel {
         }
         if (this.attackTimer >= a.dur) {
           this.state = "idle";
-          this.cooldown = this.isPlayer ? 5 : (this.aiCool || 55) + Math.random() * 45;
+          this.cooldown = this.isPlayer ? 5 : (this.aiCool || 55) + rng.next() * 45;
           // open the chain window so the next J continues the string
           if (this.isPlayer && (this.attackKind === "punch" || this.attackKind === "hook")) {
             this.chainWindow = 24;
