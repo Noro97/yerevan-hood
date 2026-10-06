@@ -2,7 +2,7 @@ import { Container, Graphics, ColorMatrixFilter } from "pixi.js";
 import { Scene } from "../core/Scene.js";
 import { ParticleSystem } from "../views/ParticleSystem.js";
 import { W, H, WORLD_W, BASE_SPEED, WEAPONS, STORY, CHAPTERS, chapterOf } from "../core/Constants.js";
-import { sfx } from "../core/SoundManager.js?v=3";
+import { sfx } from "../core/SoundManager.js";
 import { rng } from "../core/Random.js";
 import { GameModel } from "../models/GameModel.js";
 import { FighterModel } from "../models/FighterModel.js";
@@ -120,23 +120,6 @@ export class GameplayScene extends Scene {
 
     this.addChild(this.hud, this.dialogue, this.overlay);
 
-    // Bind debug utilities
-    Object.defineProperty(window, "__game", {
-      configurable: true,
-      get: () => ({
-        player: this.playerModel,
-        enemies: this.enemies,
-        mode: this.game.mode,
-        wave: this.game.wave,
-        score: this.game.score,
-        pickups: this.pickups,
-        bullets: this.bullets,
-        breakables: this.crates,
-        buffs: this.game.buffs,
-        superMeter: this.game.super,
-        scene: this,
-      }),
-    });
 
     this.hud.setMuted(sfx.muted);
     document.addEventListener("visibilitychange", this.onVisibility);
@@ -146,7 +129,6 @@ export class GameplayScene extends Scene {
   }
 
   onExit() {
-    delete window.__game;
     document.removeEventListener("visibilitychange", this.onVisibility);
     super.onExit();
   }

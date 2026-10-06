@@ -36,7 +36,7 @@ export class GameApp {
     });
 
     // Bake all textures once on startup
-    await textureManager.init(this.pixiApp.renderer);
+    await textureManager.init();
 
     // Remove the HTML loading placeholder and append the canvas
     document.getElementById("loading")?.remove();
@@ -45,7 +45,6 @@ export class GameApp {
     // Instantiate core systems
     this.input = new InputManager();
     this.scenes = new SceneManager(this);
-    window.__app = this.pixiApp; // debug handle
 
     // Set up the main ticker loop
     this.pixiApp.ticker.add((tk) => {
