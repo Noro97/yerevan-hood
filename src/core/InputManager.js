@@ -12,7 +12,6 @@ export class InputManager {
       }
       this.keys.add(e.code);
 
-      // Trigger global handlers if bound (e.g., to skip title or restart screens)
       if (this.onAnyKeyPress) {
         this.onAnyKeyPress(e.code);
       }

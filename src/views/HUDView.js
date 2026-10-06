@@ -19,23 +19,18 @@ export class HUDView extends Container {
   constructor() {
     super();
 
-    // Player name
     this.hudName = makeText("ԴԱՎՈ · DAVO", 15, 0xffd98a);
     this.hudName.position.set(18, 12);
 
-    // HP Bar backing
     this.hudBarBg = new Graphics();
     this.hudBarBg.roundRect(18, 36, 204, 16, 6).fill({ color: 0x000000, alpha: 0.6 });
     this.hudBarBg.roundRect(18, 36, 204, 16, 6).stroke({ width: 2, color: 0xffd98a });
 
-    // HP Bar filled foreground
     this.hudBarFg = new Graphics();
 
-    // Weapon slot text
     this.hudWeapon = makeText("", 13, 0xe8cf9e);
     this.hudWeapon.position.set(18, 58);
 
-    // ԿԱՅԾԱԿ super meter
     this.superBg = new Graphics();
     this.superBg.roundRect(18, 80, 124, 9, 4).fill({ color: 0x000000, alpha: 0.6 });
     this.superBg.roundRect(18, 80, 124, 9, 4).stroke({ width: 1.5, color: 0xffe14a });
@@ -43,16 +38,13 @@ export class HUDView extends Container {
     this.superLabel = makeText("ԿԱՅԾԱԿ · U", 10, 0xffe14a);
     this.superLabel.position.set(148, 78);
 
-    // Active buffs text
     this.hudBuffs = makeText("", 13, 0x9fd8ff);
     this.hudBuffs.position.set(18, 94);
 
-    // Score indicator
     this.hudScore = makeText("0", 22, 0xffffff);
     this.hudScore.anchor.set(1, 0);
     this.hudScore.position.set(W - 18, 12);
 
-    // Current wave indicator
     this.hudWave = makeText("", 14, 0xc9a0ff);
     this.hudWave.anchor.set(1, 0);
     this.hudWave.position.set(W - 18, 40);
@@ -62,18 +54,15 @@ export class HUDView extends Container {
     this.hudMuted.position.set(W - 18, 60);
     this.hudMuted.visible = false;
 
-    // Combo streak
     this.hudCombo = makeText("", 26, 0xffb347, "900");
     this.hudCombo.anchor.set(0.5);
     this.hudCombo.position.set(W / 2, 70);
     this.hudCombo.visible = false;
 
-    // Bottom controller guide
     this.hudHint = makeText("←→↑↓/WASD · J/Z հարված (J·J·J) · K/X ոտք · SPACE թռիչք · E նետիր · L/Shift գլորվիր · U ԿԱՅԾԱԿ · Esc դադար · M ձայն", 11, 0xbbaecc, "400");
     this.hudHint.anchor.set(0.5, 1);
     this.hudHint.position.set(W / 2, H - 8);
 
-    // Boss health bar (top center)
     this.bossName = makeText("", 13, 0xff6a5e, "900");
     this.bossName.anchor.set(0.5);
     this.bossName.position.set(W / 2, 90);
@@ -88,7 +77,6 @@ export class HUDView extends Container {
     this.ghost = 1;
     this.tick = 0;
 
-    // Center wave transition banners
     this.banner = makeText("", 44, 0xffd98a, "900");
     this.banner.anchor.set(0.5);
     this.banner.position.set(W / 2, H / 2 - 70);
@@ -124,7 +112,6 @@ export class HUDView extends Container {
   updateView(gameModel, playerModel, bossModel = null) {
     this.tick++;
 
-    // 1. Sync Health Bar with trailing ghost damage
     const hpRatio = playerModel ? Math.max(0, playerModel.hp) / playerModel.maxHp : 0;
     // heals snap up fast, damage drains away slowly
     this.ghost += (hpRatio - this.ghost) * (hpRatio > this.ghost ? 0.5 : 0.045);
@@ -139,7 +126,6 @@ export class HUDView extends Container {
       this.hudBarFg.roundRect(21, 39, 198 * hpRatio, 10, 4).fill(fill);
     }
 
-    // Boss health bar
     if (bossModel) {
       this.bossName.text = bossModel.bossName || "BOSS";
       this.bossName.visible = true;
@@ -155,17 +141,14 @@ export class HUDView extends Container {
       this.bossBarFg.clear();
     }
 
-    // 2. Sync Stats
     this.hudScore.text = String(gameModel.score);
     this.hudWave.text = gameModel.wave > 0 ? `ԱԼԻՔ ${gameModel.wave}` : "";
 
-    // 3. Sync Weapon readout
     const w = playerModel?.weapon;
     this.hudWeapon.text = !w ? ""
       : w.def.melee ? `${w.def.label} ×${w.uses} · E՝ նետիր`
         : `${w.def.label} ×${w.ammo} · J՝ կրակիր · E՝ նետիր`;
 
-    // 3.5 Super meter: fills gold, flashes when ready
     this.superFg.clear();
     const sup = Math.max(0, Math.min(100, gameModel.super || 0));
     if (sup > 0) {
@@ -175,7 +158,6 @@ export class HUDView extends Container {
     }
     this.superLabel.alpha = sup >= 100 ? 0.7 + Math.sin(this.tick * 0.3) * 0.3 : 0.45;
 
-    // 4. Sync Buff durations
     const parts = [];
     if (gameModel.buffs.speed > 0) {
       parts.push(`ԹԱՆ · SPEED ${Math.ceil(gameModel.buffs.speed / 60)}s`);
@@ -185,7 +167,6 @@ export class HUDView extends Container {
     }
     this.hudBuffs.text = parts.join("  ·  ");
 
-    // 5. Sync Combo meter
     if (gameModel.comboTimer > 0 && gameModel.combo >= 2) {
       this.hudCombo.text = `x${gameModel.combo} COMBO!`;
       this.hudCombo.alpha = Math.min(1, gameModel.comboTimer / 30);
@@ -194,7 +175,6 @@ export class HUDView extends Container {
       this.hudCombo.visible = false;
     }
 
-    // 6. Sync Banner overlay during transitions
     if (gameModel.mode === "banner") {
       this.banner.alpha = Math.min(1, gameModel.bannerTimer / 25);
       this.bannerSub.alpha = this.banner.alpha;

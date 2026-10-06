@@ -71,8 +71,6 @@ export class ParticleSystem {
     }
   }
 
-  // ---------- themed bursts ----------
-
   /** ground dust: running, landing, knockdowns */
   dust(x, y, count = 5) {
     this.emit({ x, y, count, colors: [0x6a6373, 0x7a7480, 0x59525f], speed: 1.3, life: 18, gravity: -0.01, size: 3.5, upBias: 0.4, spread: Math.PI * 0.9 });

@@ -12,9 +12,9 @@ export class FighterModel {
     this.label = isPlayer ? "player" : "enemy";
     this.x = x;
     this.y = y;
-    this.z = 0; // Height above ground
+    this.z = 0;
     this.vz = 0;
-    this.vx = 0; // Momentum
+    this.vx = 0;
     this.vy = 0;
     this.isPlayer = isPlayer;
     this.scaleF = scale * CHAR_SCALE;
@@ -45,7 +45,6 @@ export class FighterModel {
     // Combo chain (player): J,J,J — third hit becomes a hook
     this.chain = 0;
     this.chainWindow = 0;
-    // Dodge roll
     this.rollTimer = 0;
     this.rollCd = 0;
     this.rollDirX = 1;
@@ -53,9 +52,7 @@ export class FighterModel {
     // Landing feedback (view squash + dust)
     this.peakZ = 0;
     this.justLanded = 0;
-    // Super spin animation timer
     this.superSpin = 0;
-    // Archetype tuning
     this.archetype = null; // null | rusher | grappler | shielder
     this.lungeMul = 1;
     this.enraged = false;
@@ -63,7 +60,6 @@ export class FighterModel {
     this.moveY = 0;
     this.removed = false;
 
-    // AI configuration parameters
     this.boss = false;
     this.gunner = false;
     this.dummy = false;
@@ -172,7 +168,6 @@ export class FighterModel {
   }
 
   getActiveHit() {
-    // Flying kick active while airborne
     if (this.airKick && !this.hitDone && this.z > 4) {
       return {
         range: AIR_KICK.range * this.scaleF,
@@ -228,7 +223,7 @@ export class FighterModel {
       this.deadTimer = 0;
       this.vz = Math.max(this.vz, 3); // Pop up on death blow
       this.z = Math.max(this.z, 0.01);
-      return true; // Killed
+      return true;
     }
     if (knockdown) {
       this.state = "down";
@@ -324,11 +319,9 @@ export class FighterModel {
     if (this.justLanded > 0) this.justLanded -= dt;
     if (this.superSpin > 0) this.superSpin -= dt;
 
-    // Knockback movement
     this.x += this.kbX * dt;
     this.kbX *= Math.pow(0.86, dt);
 
-    // Height/gravity physics
     if (this.z > 0 || this.vz !== 0) {
       this.z += this.vz * dt;
       this.vz -= GRAVITY * dt;

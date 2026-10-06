@@ -27,7 +27,6 @@ export class GameApp {
   }
 
   async init() {
-    // Initialize the PixiJS application
     await this.pixiApp.init({
       width: W,
       height: H,
@@ -35,18 +34,14 @@ export class GameApp {
       antialias: true,
     });
 
-    // Bake all textures once on startup
     await textureManager.init();
 
-    // Remove the HTML loading placeholder and append the canvas
     document.getElementById("loading")?.remove();
     document.getElementById("game")?.appendChild(this.pixiApp.canvas);
 
-    // Instantiate core systems
     this.input = new InputManager();
     this.scenes = new SceneManager(this);
 
-    // Set up the main ticker loop
     this.pixiApp.ticker.add((tk) => {
       let dt = this.fixedStep ? 1 : Math.min(tk.deltaTime, 2.5);
 

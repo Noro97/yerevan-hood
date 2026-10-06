@@ -10,7 +10,6 @@ export class Scene extends Container {
    * @param {GameApp} app - Reference to the main GameApp instance.
    */
   onEnter(app) {
-    // Override in subclasses
   }
 
   /**
@@ -27,6 +26,5 @@ export class Scene extends Container {
    * @param {number} dt - delta time
    */
   update(dt) {
-    // Override in subclasses
   }
 }

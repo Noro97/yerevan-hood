@@ -6,7 +6,7 @@ export class PickupModel {
     this.y = y;
     this.type = type;
     this.meta = meta; // Preserved weapon state (remaining uses/ammo)
-    this.t = rng.next() * 60; // Initial anim offset
+    this.t = rng.next() * 60;
     this.bobOffset = 0;
     this.removed = false;
   }

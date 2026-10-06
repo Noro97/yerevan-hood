@@ -20,27 +20,22 @@ export class OverlayView extends Container {
     super();
     this.visible = true;
 
-    // Semi-transparent black background
     this.dim = new Graphics();
     this.dim.rect(0, 0, W, H).fill({ color: 0x0c0815, alpha: 0.66 });
     this.addChild(this.dim);
 
-    // Large main title header
     this.titleBig = makeText("ԵՐԵՎԱՆ HOOD", 64, 0xffd98a, "900");
     this.titleBig.anchor.set(0.5);
     this.titleBig.position.set(W / 2, 170);
 
-    // Subtitle tagline
     this.titleSub = makeText("ԿՈՆԴ · KOND STREET BRAWLER", 20, 0xc9a0ff);
     this.titleSub.anchor.set(0.5);
     this.titleSub.position.set(W / 2, 225);
 
-    // Press any key prompt
     this.titlePrompt = makeText("PRESS ANY KEY", 22, 0xffffff);
     this.titlePrompt.anchor.set(0.5);
     this.titlePrompt.position.set(W / 2, 330);
 
-    // Additional info
     this.titleInfo = makeText("Վերադարձրու պապիկի մեդալը · Bring grandpa's medal home", 14, 0xbbaecc, "400");
     this.titleInfo.anchor.set(0.5);
     this.titleInfo.position.set(W / 2, 380);
@@ -63,7 +58,6 @@ export class OverlayView extends Container {
     this.titlePrompt.text = "R / ENTER — RESTART";
     this.titleInfo.text = `Հասար ալիք ${wave} · You reached wave ${wave}`;
     
-    // Reset positions
     this.titleBig.position.set(W / 2, 170);
     this.titlePrompt.alpha = 1;
   }
@@ -75,7 +69,6 @@ export class OverlayView extends Container {
     this.titlePrompt.text = "ENTER — ENDLESS MODE · R — RESTART";
     this.titleInfo.text = "Մեդալը տանն է, թաղը՝ ազատ · The medal is home, the hood is free";
     
-    // Reset positions
     this.titleBig.position.set(W / 2, 170);
     this.titlePrompt.alpha = 1;
   }
