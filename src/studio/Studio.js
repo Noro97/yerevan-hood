@@ -9,6 +9,7 @@ import { SpawnPanel } from "./panels/SpawnPanel.js";
 import { ViewPanel } from "./panels/ViewPanel.js";
 import { CombatLog } from "./panels/CombatLog.js";
 import { ResultPanel } from "./panels/ResultPanel.js";
+import { ItemLabPanel } from "./panels/ItemLabPanel.js";
 
 const FREE_PLAY = {
   id: "free",
@@ -65,11 +66,13 @@ export class Studio {
     this.view = new ViewPanel(this);
     this.log = new CombatLog(this);
     this.resultPanel = new ResultPanel(this);
+    this.itemLab = new ItemLabPanel(this);
 
     const tabs = [
       ["Scenarios", this.scenarioPanel],
       ["Inspect", this.inspector],
       ["Spawn", this.spawn],
+      ["Items", this.itemLab],
       ["View", this.view],
     ];
     const tabButtons = tabs.map(([name], i) =>

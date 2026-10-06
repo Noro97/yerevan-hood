@@ -5,13 +5,18 @@ export class ViewPanel {
   constructor(studio) {
     const layers = studio.overlays.layers;
     const scene = () => studio.scene;
-    const toggle = (label, hint, checked, onChange) =>
-      h("label", { class: "check", title: hint }, h("input", { type: "checkbox", checked, onChange: (e) => onChange(e.target.checked) }), label);
+    this.layers = layers;
+    this.boxes = new Map();
+    const toggle = (label, hint, checked, onChange, key = null) => {
+      const box = h("input", { type: "checkbox", checked, onChange: (e) => onChange(e.target.checked) });
+      if (key) this.boxes.set(key, box);
+      return h("label", { class: "check", title: hint }, box, label);
+    };
 
     this.el = h("div", { class: "panel view" },
       h("h3", {}, "Debug overlays"),
       Object.entries(OVERLAY_LAYERS).map(([key, { label, hint }]) =>
-        toggle(label, hint, layers[key], (on) => (layers[key] = on))),
+        toggle(label, hint, layers[key], (on) => (layers[key] = on), key)),
       h("h3", {}, "Scene layers"),
       toggle("HUD", "health, score, combo, banners", true, (on) => (scene().hud.visible = on)),
       toggle("Foreground strip", "out-of-focus strip drawn over the street", true, (on) => (scene().bg.fore.visible = on)),
@@ -27,5 +32,10 @@ export class ViewPanel {
         h("li", {}, h("i", { style: { background: "#bf5af2" } }), "bullet sweep"),
         h("li", {}, h("i", { style: { background: "#64d2ff" } }), "thrown weapon sweep"),
         h("li", {}, h("i", { style: { background: "#5ac8fa" } }), "selected fighter + reach ticks (punch / kick / hook)")));
+  }
+
+  /** Re-reads the overlay toggles after another panel changed them. */
+  sync() {
+    for (const [key, box] of this.boxes) box.checked = this.layers[key];
   }
 }

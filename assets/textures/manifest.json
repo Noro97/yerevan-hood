@@ -557,7 +557,12 @@
     "width": 50,
     "height": 48,
     "anchorX": 0.5,
-    "anchorY": 0.79
+    "anchorY": 0.79,
+    "content": {
+      "length": 50.31,
+      "bottom": 44,
+      "centerX": 25.0
+    }
   },
   "objects/bullet": {
     "png": "assets/textures/objects/bullet.png",
@@ -571,98 +576,168 @@
     "width": 32,
     "height": 70,
     "anchorX": 0.5,
-    "anchorY": 0.14
+    "anchorY": 0.14,
+    "content": {
+      "length": 66.0,
+      "bottom": 68,
+      "centerX": 16.5
+    }
   },
   "weapons/bottle": {
     "png": "assets/textures/weapons/bottle.png",
     "width": 32,
     "height": 70,
     "anchorX": 0.5,
-    "anchorY": 0.14
+    "anchorY": 0.14,
+    "content": {
+      "length": 62.0,
+      "bottom": 66,
+      "centerX": 16.0
+    }
   },
   "weapons/pistol": {
     "png": "assets/textures/weapons/pistol.png",
     "width": 32,
     "height": 70,
     "anchorX": 0.5,
-    "anchorY": 0.14
+    "anchorY": 0.14,
+    "content": {
+      "length": 62.71,
+      "bottom": 65,
+      "centerX": 16.0
+    }
   },
   "weapons/lid": {
     "png": "assets/textures/weapons/lid.png",
     "width": 32,
     "height": 70,
     "anchorX": 0.5,
-    "anchorY": 0.14
+    "anchorY": 0.14,
+    "content": {
+      "length": 63.08,
+      "bottom": 65,
+      "centerX": 16.0
+    }
   },
   "pickups/shawarma": {
     "png": "assets/textures/pickups/shawarma.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 56.14,
+      "bottom": 42,
+      "centerX": 32.0
+    }
   },
   "pickups/khorovats": {
     "png": "assets/textures/pickups/khorovats.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 66.52,
+      "bottom": 48,
+      "centerX": 32.0
+    }
   },
   "pickups/tan": {
     "png": "assets/textures/pickups/tan.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 38.27,
+      "bottom": 44,
+      "centerX": 32.0
+    }
   },
   "pickups/cognac": {
     "png": "assets/textures/pickups/cognac.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 47.44,
+      "bottom": 48,
+      "centerX": 32.5
+    }
   },
   "pickups/coin": {
     "png": "assets/textures/pickups/coin.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 53.39,
+      "bottom": 46,
+      "centerX": 32.0
+    }
   },
   "pickups/medal": {
     "png": "assets/textures/pickups/medal.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 59.35,
+      "bottom": 48,
+      "centerX": 31.5
+    }
   },
   "pickups/stick": {
     "png": "assets/textures/pickups/stick.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 64.86,
+      "bottom": 47,
+      "centerX": 32.0
+    }
   },
   "pickups/bottle": {
     "png": "assets/textures/pickups/bottle.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 56.73,
+      "bottom": 48,
+      "centerX": 32.5
+    }
   },
   "pickups/pistol": {
     "png": "assets/textures/pickups/pistol.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 56.91,
+      "bottom": 45,
+      "centerX": 32.0
+    }
   },
   "pickups/lid": {
     "png": "assets/textures/pickups/lid.png",
     "width": 64,
     "height": 50,
     "anchorX": 0.5,
-    "anchorY": 0.5
+    "anchorY": 0.5,
+    "content": {
+      "length": 58.09,
+      "bottom": 48,
+      "centerX": 32.0
+    }
   },
   "pickups/pickup_shadow": {
     "png": "assets/textures/pickups/pickup_shadow.png",

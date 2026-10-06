@@ -372,6 +372,8 @@ export class GameplayScene extends Scene {
     model.shootCd = 60 + rng.next() * 60;
     if (model.archetype === "shielder") {
       model.setWeapon({ kind: "lid", def: { melee: false, label: "ԿԱՓԱԿ" } });
+    } else if (model.gunner) {
+      model.setWeapon({ kind: "pistol", def: WEAPONS.pistol });
     }
 
     return this.spawnEntity("enemy", model, new FighterView(cfg.paletteKey, false, cfg.scale, cfg.name));
@@ -410,6 +412,8 @@ export class GameplayScene extends Scene {
       model.setWeapon({ kind: cfg.weapon, def, scale: model.weaponScale });
     } else if (model.archetype === "shielder") {
       model.setWeapon({ kind: "lid", def: { melee: false, label: "ԿԱՓԱԿ" }, scale: model.weaponScale });
+    } else if (model.gunner) {
+      model.setWeapon({ kind: "pistol", def: WEAPONS.pistol, scale: model.weaponScale });
     }
 
     const paletteKey = cfg.paletteKey || (cfg.boss ? "boss" : cfg.gunner ? "gunner" : cfg.archetype === "shielder" ? "shielder" : "thug1");
@@ -569,7 +573,7 @@ export class GameplayScene extends Scene {
 
   spawnThrow(throwModel) {
     const view = new PickupView(throwModel.type);
-    view.shadow.visible = false;
+    view.setFlying(true);
     this.spawnEntity("throw", throwModel, view);
     view.zIndex = 9998;
     return throwModel;

@@ -17,29 +17,14 @@ export const ARM_FONT = '"Noto Sans Armenian", "Arial Unicode MS", Arial, sans-s
 export const GRAVITY = 0.72;
 export const JUMP_VEL = 9.6;
 
-// Standardized Sizing System (1 meter ≈ 50 pixels)
+// Prop and crate scales (world props aren't part of the item size table in data/items.js)
 export const SCALE_CONFIG = {
-  CHAR_BASE_H: 122,
-  CHAR_SCALE: 0.70, // Human ~85.4px
-  PICKUP_SCALES: {
-    coin: 0.30,       // ~15x15px dram coin
-    medal: 0.35,      // ~18x18px war medal
-    shawarma: 0.42,   // ~27x21px food wrap
-    khorovats: 0.44,  // ~28x22px meat skewers
-    tan: 0.40,        // ~25x20px glass
-    cognac: 0.42,     // ~27x21px bottle
-    stick: 0.50,      // ~32x25px floor club
-    bottle: 0.48,     // ~30x24px floor bottle
-    pistol: 0.48,     // ~30x24px floor gun
-    lid: 0.50,        // ~32x25px floor lid
-    default: 0.45,
-  },
   PROP_SCALES: {
-    lada: 1.25,       // ~210x87px car
-    lamp: 1.0,        // ~80x190px street lamp
-    bin: 1.0,         // ~40x45px concrete bin
+    lada: 1.25,
+    lamp: 1.0,
+    bin: 1.0,
   },
-  CRATE_SCALE: 0.85,  // ~42x41px wooden crate
+  CRATE_SCALE: 0.85,
 };
 
 export const PALETTES = {

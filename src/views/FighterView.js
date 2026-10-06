@@ -1,6 +1,7 @@
 import { Container, Graphics, Sprite, Text } from "pixi.js";
 import { ARM_FONT, PALETTES, CHAR_SCALE } from "../core/Constants.js";
-import { ATTACKS, RECOIL } from "../data/combat.js";
+import { ATTACKS, RECOIL, WEAPONS, HIT } from "../data/combat.js";
+import { ITEMS, handLength } from "../data/items.js";
 import { textureManager } from "../core/TextureManager.js";
 
 const NECK_TUCK = 6;
@@ -11,6 +12,9 @@ const FALL_ANGLE = 1.45;
 // At full extension a punch is thrown toward the camera; shortening the arm keeps the fist's
 // visible reach in line with the hit reach of ATTACKS.punch.
 const PUNCH_FORESHORTEN = 0.3;
+const PUNCH_ARM_ROTATION = -1.65;
+// Hurtbox radius × reach-ahead of a scale-1 target: part of every melee hit reach.
+const NOMINAL_TARGET_REACH = 16 * CHAR_SCALE * HIT.reachAhead;
 
 function createSprite(tex) {
   return textureManager.createSprite(tex);
@@ -46,12 +50,13 @@ export class FighterView extends Container {
     this.head = new Sprite();
     this.frontArm = new Sprite();
 
+    // A sibling of the arm placed at the hand each frame, so arm foreshortening never skews it.
     this.weaponSprite = new Sprite();
     this.weaponSprite.visible = false;
-    this.frontArm.addChild(this.weaponSprite);
+    this.weaponItem = null;
 
     this.tintables = [this.backArm, this.backLeg, this.frontLeg, this.torso, this.head, this.frontArm];
-    this.body.addChild(...this.tintables);
+    this.body.addChild(...this.tintables, this.weaponSprite);
     this.layoutRig(charTex);
 
     // Enemy HUD (health bar and name tag)
@@ -116,36 +121,69 @@ export class FighterView extends Container {
     this.frontArm.position.set(sk.shoulderR[0], torsoY + sk.shoulderR[1]);
 
     const arm = charTex.arm;
-    this.weaponSprite.position.set(0, arm.height * (1 - arm.defaultAnchor.y) - arm.pad - HAND_INSET);
+    this.handY = arm.height * (1 - arm.defaultAnchor.y) - arm.pad - HAND_INSET;
+    if (this.heldWeapon) this.setWeaponGraphic(this.heldWeapon);
 
     this.hipY = hipY;
     this.body.pivot.set(0, hipY);
   }
 
+  /** Weapon sprite from the item size table: gripped at ITEMS[kind].grip, sized by handLength(). */
   setWeaponGraphic(weapon) {
-    if (!weapon || !weapon.kind) {
+    this.heldWeapon = weapon;
+    const tex = weapon?.kind && textureManager.textures.weapons[weapon.kind];
+    const item = weapon?.kind && ITEMS[weapon.kind];
+    if (!tex || !item) {
       this.weaponSprite.visible = false;
+      this.weaponItem = null;
       return;
     }
-    const tex = textureManager.textures.weapons[weapon.kind];
-    if (tex) {
-      this.weaponSprite.texture = tex;
-      if (tex.defaultAnchor) {
-        this.weaponSprite.anchor.set(tex.defaultAnchor.x, tex.defaultAnchor.y);
-      }
-      const scale = (weapon.scale !== undefined ? weapon.scale : (this.weaponScale || 1.0));
-      this.weaponSprite.scale.set(scale);
-      this.weaponSprite.visible = true;
+    this.weaponSprite.texture = tex;
+    this.weaponSprite.anchor.set(item.grip[0] / tex.width, item.grip[1] / tex.height);
+    this.weaponBaseScale = handLength(weapon.kind) / tex.content.length;
+    this.weaponItem = item;
+    this.weaponSprite.visible = true;
+    this.applyWeaponScale(weapon.scale ?? this.weaponScale ?? 1);
+
+    // Angle at the moment of impact that puts the weapon's tip on its hit reach, so a
+    // swing never visibly passes through an enemy it doesn't damage.
+    const def = WEAPONS[weapon.kind];
+    if (def?.melee) {
+      const reach = def.range + NOMINAL_TARGET_REACH / this.scaleF;
+      const fist = this.frontArm.x + Math.sin(-PUNCH_ARM_ROTATION) * this.handY * (1 - PUNCH_FORESHORTEN);
+      const tipLength = (tex.content.bottom - item.grip[1]) * this.weaponSprite.scale.y;
+      const forward = Math.max(0, Math.min(1, (reach - fist) / tipLength));
+      this.weaponImpact = -Math.asin(forward) - PUNCH_ARM_ROTATION;
     } else {
-      this.weaponSprite.visible = false;
+      this.weaponImpact = item.carry;
     }
+  }
+
+  applyWeaponScale(mul) {
+    this.weaponSprite.scale.set(this.weaponBaseScale * mul);
   }
 
   setWeaponScale(scale) {
     this.weaponScale = scale;
-    if (this.weaponSprite && this.weaponSprite.texture) {
-      this.weaponSprite.scale.set(scale);
+    if (this.weaponItem) this.applyWeaponScale(scale);
+  }
+
+  /** Re-reads the size table (studio item lab edits it live). */
+  refreshWeapon() {
+    if (this.heldWeapon) this.setWeaponGraphic(this.heldWeapon);
+  }
+
+  placeWeapon(model) {
+    if (!this.weaponItem) return;
+    const FA = this.frontArm;
+    const hand = this.handY * FA.scale.y;
+    this.weaponSprite.position.set(FA.x - Math.sin(FA.rotation) * hand, FA.y + Math.cos(FA.rotation) * hand);
+    let rel = this.weaponItem.carry;
+    if (model.state === "recoil" && model.recoilKind === "shoot") rel = 0;
+    else if (model.state === "attack" && model.attackKind === "punch" && model.weapon?.def?.melee) {
+      rel = this.weaponItem.carry + (this.weaponImpact - this.weaponItem.carry) * this.punchExtension;
     }
+    this.weaponSprite.rotation = FA.rotation + rel;
   }
 
   redrawEnemyHp(hp, maxHp) {
@@ -169,6 +207,7 @@ export class FighterView extends Container {
     this.scaleF = (this.baseScale || 1) * CHAR_SCALE * mult;
     this.body.scale.set(this.scaleF);
     this.shadow.scale.set(this.scaleF);
+    this.refreshWeapon();
   }
 
   updateView(dt, model) {
@@ -242,6 +281,7 @@ export class FighterView extends Container {
     const lyingDrop = (-this.hipY - LIE_HEIGHT) * this.scaleF;
     let lean = 0;
     FA.scale.y = 1;
+    this.punchExtension = 0;
 
     switch (model.state) {
       case "idle":
@@ -287,8 +327,11 @@ export class FighterView extends Container {
 
         if (model.attackKind === "punch" || model.attackKind === "hook") {
           const power = model.attackKind === "hook" ? 1.25 : 1;
-          FA.rotation = restArm + (-1.65 * power - restArm) * ext;
-          if (model.attackKind === "punch") FA.scale.y = 1 - PUNCH_FORESHORTEN * ext;
+          FA.rotation = restArm + (PUNCH_ARM_ROTATION * power - restArm) * ext;
+          if (model.attackKind === "punch") {
+            FA.scale.y = 1 - PUNCH_FORESHORTEN * ext;
+            this.punchExtension = ext;
+          }
           BA.rotation = restArm + 0.5 * power * ext;
           FL.rotation = 0.2 * ext;
           BL.rotation = -0.2 * ext;
@@ -381,5 +424,6 @@ export class FighterView extends Container {
 
     this.body.rotation = lean * f;
     this.body.y += this.hipY * this.body.scale.y;
+    this.placeWeapon(model);
   }
 }

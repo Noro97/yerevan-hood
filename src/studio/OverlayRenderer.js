@@ -1,6 +1,7 @@
 import { Graphics } from "pixi.js";
 import { WORLD_W } from "../core/Constants.js";
 import { ATTACKS, COMBAT_DEPTH_BAND, PROJECTILE_DEPTH_BAND, HIT } from "../data/combat.js";
+import { FLOOR_PX_PER_METER } from "../data/items.js";
 
 export const OVERLAY_LAYERS = {
   hurtboxes: { label: "Hurtboxes", hint: "footprint + body column; grey = invulnerable", on: true },
@@ -10,6 +11,7 @@ export const OVERLAY_LAYERS = {
   projectiles: { label: "Projectiles", hint: "bullet and thrown-weapon sweeps", on: true },
   pivots: { label: "Rig pivots", hint: "anchor of every body part", on: false },
   bounds: { label: "Floor bounds", hint: "walkable strip", on: false },
+  ruler: { label: "Metre ruler", hint: "2 m scale next to the player (ticks every 10 cm)", on: false },
 };
 
 const COLORS = {
@@ -40,6 +42,18 @@ export class OverlayRenderer {
     return this.g;
   }
 
+  /** Vertical 2 m scale at a scale-1 fighter's metres (FLOOR_PX_PER_METER), ticks every 10 cm. */
+  drawRuler(g, x, groundY) {
+    const m = FLOOR_PX_PER_METER;
+    g.moveTo(x, groundY).lineTo(x, groundY - 2 * m).stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
+    for (let i = 0; i <= 20; i++) {
+      const w = i % 10 === 0 ? 10 : i % 5 === 0 ? 7 : 4;
+      const y = groundY - (i / 10) * m;
+      g.moveTo(x - w, y).lineTo(x, y).stroke({ width: i % 10 === 0 ? 2 : 1, color: 0xffffff, alpha: 0.9 });
+    }
+    g.moveTo(x, groundY + 4).lineTo(x + m, groundY + 4).stroke({ width: 2, color: 0xffd60a, alpha: 0.9 });
+  }
+
   draw(scene, selected) {
     if (!scene.actors || scene.actors.destroyed) return;
     const g = this.ensure(scene);
@@ -53,6 +67,8 @@ export class OverlayRenderer {
         g.moveTo(0, y).lineTo(WORLD_W, y).stroke({ width: 1.5, color: COLORS.bounds, alpha: 0.8 });
       }
     }
+
+    if (L.ruler && player) this.drawRuler(g, player.x - 34, player.y);
 
     if (L.lanes && player?.alive) {
       const band = COMBAT_DEPTH_BAND * player.scaleF;

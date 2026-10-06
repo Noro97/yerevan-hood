@@ -310,6 +310,7 @@ export class CombatSystem {
     if (t.boss) game.zoomPunch = 14;
     if (t.gunner) {
       // their pistol survives with whatever they hadn't fired yet
+      t.setWeapon(null);
       this.world.spawnPickup(t.x, t.y, "pistol", { ammo: DROPS.gunnerAmmoMin + Math.floor(rng.next() * DROPS.gunnerAmmoRange) });
     } else if (t.boss && game.wave === DROPS.medalWave && !game.endless) {
       this.world.spawnPickup(t.x, t.y, "medal");
